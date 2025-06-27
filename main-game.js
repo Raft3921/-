@@ -13,17 +13,31 @@ const map = [];
 function loadMapFromStorage() {
   const savedMap = localStorage.getItem("world_" + slotName);
   if (savedMap) {
-    const parsed = JSON.parse(savedMap);
-    if (Array.isArray(parsed)) {
-      map.length = 0;
-      map.push(...parsed);
-      return true;
+    try {
+      const parsed = JSON.parse(savedMap);
+      if (Array.isArray(parsed)) {
+        // 古い形式（配列のみ）
+        map.length = 0;
+        map.push(...parsed);
+        window.dummyOverlays = {};
+        return true;
+      } else if (parsed.map && Array.isArray(parsed.map)) {
+        // 新しい形式（mapとdummyOverlaysを含む）
+        map.length = 0;
+        map.push(...parsed.map);
+        window.dummyOverlays = parsed.dummyOverlays || {};
+        return true;
+      }
+    } catch (e) {
+      console.error("マップ読み込みエラー:", e);
     }
   }
+  // デフォルトマップ作成
   for (let r = 0; r < mapRows; r++) {
     map[r] = [];
     for (let c = 0; c < mapCols; c++) map[r][c] = 0;
   }
+  window.dummyOverlays = {};
   return false;
 }
 loadMapFromStorage();
@@ -150,6 +164,7 @@ function initEnemies() {
         enemyObjs.push({
           x: col * TILE_SIZE,
           y: row * TILE_SIZE,
+          vy: 0, // 重力速度を初期化
           dir: Math.random() < 0.5 ? -1 : 1,
           speed: 1.5,
           animTimer: Math.floor(Math.random() * 60) // スタートずらす
@@ -162,17 +177,54 @@ function initEnemies() {
 initEnemies();
 
 function updateEnemies() {
+  if (!enemyObjs || !Array.isArray(enemyObjs)) {
+    console.warn("updateEnemies: enemyObjsが無効です");
+    return;
+  }
+  
   for (const enemy of enemyObjs) {
+    if (!enemy) continue;
+    
+    // 重力を追加
+    enemy.vy += 0.5; // 重力
+    enemy.y += enemy.vy;
+    
+    // 地面との衝突判定（より正確に）
+    const enemyBottom = enemy.y + TILE_SIZE;
+    const enemyCol = Math.floor(enemy.x / TILE_SIZE);
+    const enemyRow = Math.floor(enemyBottom / TILE_SIZE);
+    
+    // 足元のタイルをチェック
+    let onGround = false;
+    if (enemyRow >= 0 && enemyRow < map.length && enemyCol >= 0 && enemyCol < map[0].length) {
+      const tileBelow = map[enemyRow][enemyCol];
+      // 地面として機能するタイル
+      if (tileBelow === 1 || tileBelow === 2 || tileBelow === 5 || tileBelow === 11) {
+        onGround = true;
+      }
+    }
+    
+    // 地面に着地
+    if (onGround && enemy.vy > 0) {
+      enemy.y = enemyRow * TILE_SIZE - TILE_SIZE;
+      enemy.vy = 0;
+    }
+    
+    // 水平移動
     enemy.x += enemy.speed * enemy.dir;
     enemy.animTimer = (enemy.animTimer || 0) + 1;
+    
     // 足元と正面で折返し
     const aheadX = enemy.x + (enemy.dir > 0 ? TILE_SIZE : -2);
     const footY = enemy.y + TILE_SIZE;
     const tileAhead = getTile(aheadX, enemy.y);
     const tileBelowAhead = getTile(aheadX, footY);
+    
+    // より自然な折返し判定
     if (
-      tileBelowAhead === 0 ||
-      tileAhead === 1 || tileAhead === 2 || tileAhead === 5
+      tileBelowAhead === 0 || // 足元が空
+      tileAhead === 1 || tileAhead === 2 || tileAhead === 5 || // 正面にブロック
+      enemy.x <= 0 || enemy.x + TILE_SIZE >= map[0].length * TILE_SIZE // マップ端
     ) {
       enemy.dir *= -1;
       enemy.x += enemy.speed * enemy.dir;
@@ -181,7 +233,14 @@ function updateEnemies() {
 }
 
 function drawEnemies() {
+  if (!enemyObjs || !Array.isArray(enemyObjs)) {
+    console.warn("drawEnemies: enemyObjsが無効です");
+    return;
+  }
+  
   for (const enemy of enemyObjs) {
+    if (!enemy) continue;
+    
     const frame = Math.floor((enemy.animTimer || 0) / 10) % 2;
     const img = frame === 0 ? enemyMoveImg1 : enemyMoveImg2;
     ctx.drawImage(img, enemy.x, enemy.y, TILE_SIZE, TILE_SIZE);
@@ -198,18 +257,38 @@ function getTile(x, y) {
   return map[row][col];
 }
 
-function collideWithMap(px, py, w, h) {
-  // プレイヤーの当たり判定だけ幅を狭く
-  let marginX = 0;
-  if (w === 28 && h === 28) marginX = 4; // プレイヤーのみ
-  const tilesToCheck = [
-    [px + marginX, py], [px + w - marginX, py], [px + marginX, py + h], [px + w - marginX, py + h],
-  ];
-  return tilesToCheck.some(([x, y]) => {
-    const t = getTile(x, y);
-    // レール（12,13,14）は当たり判定に含めない、棘（3）は普通のブロックとして判定
-    return t === 1 || t === 2 || t === 3 || t === 5 || t === 11;
-  });
+// 当たり判定チェック
+function checkCollision(x, y, width, height) {
+  const left = Math.floor(x / TILE_SIZE);
+  const right = Math.floor((x + width) / TILE_SIZE);
+  const top = Math.floor(y / TILE_SIZE);
+  const bottom = Math.floor((y + height) / TILE_SIZE);
+  
+  // デバッグ用：当たり判定範囲を確認
+  if (Math.abs(x - player.x) < 5 && Math.abs(y - player.y) < 5) {
+    console.log("当たり判定範囲:", { left, right, top, bottom, x, y, width, height });
+  }
+  
+  for (let row = top; row <= bottom; row++) {
+    for (let col = left; col <= right; col++) {
+      if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
+        const tile = map[row][col];
+        // 当たり判定から除外するタイル:
+        // 0: 空, 4: ゴール, 8: ハシゴ, 10: スポーン地点, 12-14: レール, 15: コイン, 16: チェックポイント, 17: ゴールドゴール, 19: ダミーブロック
+        // 3: 敵はブロックとしての当たり判定あり、特殊効果は別途処理
+        if (tile !== 0 && tile !== 4 && tile !== 8 && tile !== 10 && 
+            tile !== 12 && tile !== 13 && tile !== 14 && 
+            tile !== 15 && tile !== 16 && tile !== 17 && tile !== 19) {
+          // デバッグ用：衝突したタイルを確認
+          if (Math.abs(x - player.x) < 5 && Math.abs(y - player.y) < 5) {
+            console.log("衝突タイル:", { row, col, tile });
+          }
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 // チェックポイント管理
@@ -241,9 +320,32 @@ function diePlayer(reason) {
 // プレイヤー初期化時
 const spawn = findSpawn();
 player.x = spawn.x;
-player.y = spawn.y;
+player.y = spawn.y - TILE_SIZE; // スポーン地点の1タイル上に配置
 respawnPoint.x = spawn.x;
-respawnPoint.y = spawn.y;
+respawnPoint.y = spawn.y - TILE_SIZE; // リスポーン位置も調整
+
+// デバッグ用：プレイヤー位置の確認
+console.log("プレイヤー初期位置:", player.x, player.y);
+console.log("スポーン位置:", spawn.x, spawn.y);
+
+// プレイヤー周辺のタイル情報を確認
+const playerCol = Math.floor(player.x / TILE_SIZE);
+const playerRow = Math.floor(player.y / TILE_SIZE);
+console.log("プレイヤー周辺タイル:");
+for (let r = playerRow - 1; r <= playerRow + 2; r++) {
+  let rowInfo = "";
+  for (let c = playerCol - 1; c <= playerCol + 2; c++) {
+    if (r >= 0 && r < map.length && c >= 0 && c < map[0].length) {
+      const tile = map[r][c];
+      const isDummy = tile === 19;
+      const overlay = isDummy && window.dummyOverlays ? window.dummyOverlays[`${r},${c}`] : null;
+      rowInfo += `[${tile}${overlay ? `(${overlay})` : ''}]`;
+    } else {
+      rowInfo += "[X]";
+    }
+  }
+  console.log(`行${r}: ${rowInfo}`);
+}
 
 // イベント登録
 document.addEventListener("keydown", (e) => keys[e.key] = true);
@@ -294,17 +396,37 @@ function update() {
     player.onGround = false;
   }
 
+  // デバッグ用：キー入力と移動状態を確認
+  if (keys["ArrowLeft"] || keys["ArrowRight"] || keys[" "]) {
+    console.log("キー入力:", {
+      left: keys["ArrowLeft"],
+      right: keys["ArrowRight"],
+      space: keys[" "],
+      vx: player.vx,
+      vy: player.vy,
+      onGround: player.onGround
+    });
+  }
+
   // 移動・落下
   const nextX = player.x + player.vx;
-  if (!collideWithMap(nextX, player.y, player.width, player.height)) player.x = nextX;
+  const collisionX = checkCollision(nextX, player.y, player.width, player.height);
+  if (!collisionX) {
+    player.x = nextX;
+  } else {
+    console.log("X軸移動ブロック:", player.x, player.y, "→", nextX, player.y);
+  }
+  
   player.vy += player.gravity;
   const nextY = player.y + player.vy;
-  if (!collideWithMap(player.x, nextY, player.width, player.height)) {
+  const collisionY = checkCollision(player.x, nextY, player.width, player.height);
+  if (!collisionY) {
     player.y = nextY;
     player.onGround = false;
   } else {
     if (player.vy > 0) player.onGround = true;
     player.vy = 0;
+    console.log("Y軸移動ブロック:", player.x, player.y, "→", player.x, nextY);
   }
 
   // ハシゴの上面で自然に立てる
@@ -335,15 +457,79 @@ function update() {
   // 敵移動
   updateEnemies();
 
-  // 動く敵との当たり判定
-  for (const enemy of enemyObjs) {
+  // 動く敵との当たり判定と物理演算
+  let onEnemy = false;
+  let enemiesToRemove = []; // 削除する敵のインデックスを保存
+  
+  // enemyObjsの存在チェック
+  if (!enemyObjs || !Array.isArray(enemyObjs)) {
+    enemyObjs = [];
+    console.warn("enemyObjsが初期化されていません。再初期化します。");
+  }
+  
+  for (let i = 0; i < enemyObjs.length; i++) {
+    const enemy = enemyObjs[i];
+    
+    // enemyオブジェクトの存在チェック
+    if (!enemy) {
+      console.warn("無効な敵オブジェクトをスキップします:", i);
+      continue;
+    }
+    
+    // 落下ブロックとの衝突判定（敵の上に落下ブロックが落ちてきた時）
+    if (window.fallingBreaks && Array.isArray(window.fallingBreaks)) {
+      for (let j = window.fallingBreaks.length - 1; j >= 0; j--) {
+        const fb = window.fallingBreaks[j];
+        if (!fb) continue;
+        
+        if (
+          fb.col * TILE_SIZE + TILE_SIZE > enemy.x &&
+          fb.col * TILE_SIZE < enemy.x + TILE_SIZE &&
+          fb.y + TILE_SIZE > enemy.y &&
+          fb.y < enemy.y + TILE_SIZE &&
+          fb.vy > 0 // 落下中の場合のみ
+        ) {
+          // 敵を倒す！
+          enemiesToRemove.push(i);
+          window.fallingBreaks.splice(j, 1);
+          scoa += 300; // 敵を倒したスコア
+          console.log("落下ブロックで敵を倒した！ +300点");
+          break;
+        }
+      }
+    }
+    
+    // プレイヤーが敵の上に乗っているかチェック
     if (
+      player.x + player.width > enemy.x &&
+      player.x < enemy.x + TILE_SIZE &&
+      Math.abs((player.y + player.height) - enemy.y) < 5 && // 5px以内なら上に乗っている
+      player.vy >= 0 // 落下中または静止中
+    ) {
+      onEnemy = true;
+      player.y = enemy.y - player.height; // 敵の上に配置
+      player.vy = 0;
+      player.onGround = true;
+      
+      // 敵の移動に合わせてプレイヤーも移動
+      player.x += enemy.speed * enemy.dir;
+    }
+    
+    // 横からの接触判定（死亡）
+    else if (
       player.x + player.width > enemy.x &&
       player.x < enemy.x + TILE_SIZE &&
       player.y + player.height > enemy.y &&
       player.y < enemy.y + TILE_SIZE
     ) {
       if (!isDead) diePlayer("enemyMove");
+    }
+  }
+  
+  // 削除対象の敵を後から削除（インデックスを降順で削除）
+  for (let i = enemiesToRemove.length - 1; i >= 0; i--) {
+    if (enemyObjs[enemiesToRemove[i]]) {
+      enemyObjs.splice(enemiesToRemove[i], 1);
     }
   }
 
@@ -393,6 +579,32 @@ function update() {
     fb.vy += 0.5; // gravity
     fb.y += fb.vy;
     const nextRow = Math.floor((fb.y + TILE_SIZE) / TILE_SIZE);
+    
+    // 動く敵との衝突判定
+    let hitEnemy = false;
+    for (let j = enemyObjs.length - 1; j >= 0; j--) {
+      const enemy = enemyObjs[j];
+      if (
+        fb.col * TILE_SIZE + TILE_SIZE > enemy.x &&
+        fb.col * TILE_SIZE < enemy.x + TILE_SIZE &&
+        fb.y + TILE_SIZE > enemy.y &&
+        fb.y < enemy.y + TILE_SIZE
+      ) {
+        // 敵を倒す！
+        enemyObjs.splice(j, 1);
+        hitEnemy = true;
+        scoa += 300; // 敵を倒したスコア
+        console.log("敵を倒した！ +300点");
+        break;
+      }
+    }
+    
+    if (hitEnemy) {
+      // 敵を倒した場合は落下ブロックも消す
+      window.fallingBreaks.splice(i, 1);
+      continue;
+    }
+    
     if (nextRow >= map.length || (nextRow >= 0 && map[nextRow][fb.col] !== 0)) {
       if (nextRow >= map.length) {
         fb.fading = true;
@@ -426,19 +638,55 @@ function update() {
   }
 
   // --- タイルごとの判定 ---
-  // 棘は上からのみダメージ判定（さらに上部に）
-  const tileAbove = getTile(footX, footY - TILE_SIZE - 16);
-  if (tileAbove === 3 && !isDead) {
+  // 敵の死亡判定（プレイヤーが敵の上に乗った時のみ）
+  const playerBottom = player.y + player.height;
+  const playerCenterX = player.x + player.width / 2;
+  
+  // プレイヤーの足元のタイルをチェック
+  const tileBelowPlayer = getTile(playerCenterX, playerBottom + 1);
+  if (tileBelowPlayer === 3 && !isDead) {
     diePlayer("enemy");
     return;
   }
-  if (tileBelow === 6 && !isDead) {
-    diePlayer("poison");
-    return;
+  
+  // トランポリンの拡張判定（プレイヤーの下部周辺）
+  const playerLeft = player.x - 8; // プレイヤーの左右8px拡張
+  const playerRight = player.x + player.width + 8;
+  const trampolineTop = player.y + player.height - 8; // プレイヤーの下部8px拡張
+  const trampolineBottom = player.y + player.height + 16; // さらに下16px拡張
+  
+  for (let row = Math.floor(trampolineTop / TILE_SIZE); row <= Math.floor(trampolineBottom / TILE_SIZE); row++) {
+    for (let col = Math.floor(playerLeft / TILE_SIZE); col <= Math.floor(playerRight / TILE_SIZE); col++) {
+      if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
+        const tile = map[row][col];
+        if (tile === 7 && player.vy > 0 && !isDead) {
+          player.vy = player.jumpPower * 1.7; // トランポリン効果
+        }
+      }
+    }
   }
-  if (tileBelow === 7 && player.vy > 0 && !isDead) {
-    player.vy = player.jumpPower * 1.7; // きのこ
+  
+  // 毒の拡張判定（ブロックの当たり判定の0.1タイル分外側）
+  const poisonMargin = TILE_SIZE * 0.1; // 0.1タイル分のマージン
+  const poisonLeft = player.x - poisonMargin;
+  const poisonRight = player.x + player.width + poisonMargin;
+  const poisonTop = player.y - poisonMargin;
+  const poisonBottom = player.y + player.height + poisonMargin;
+  
+  // 毒の拡張判定範囲をチェック
+  for (let row = Math.floor(poisonTop / TILE_SIZE); row <= Math.floor(poisonBottom / TILE_SIZE); row++) {
+    for (let col = Math.floor(poisonLeft / TILE_SIZE); col <= Math.floor(poisonRight / TILE_SIZE); col++) {
+      if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
+        const tile = map[row][col];
+        if (tile === 6 && !isDead) {
+          diePlayer("poison");
+          return;
+        }
+      }
+    }
   }
+  
+  // ハシゴの判定（当たり判定なしになったので特殊効果のみ）
   if (tileBelow === 8) {
     if (keys["w"]) player.vy = -2;
     else if (keys["s"]) player.vy = 2;
@@ -592,18 +840,25 @@ function draw() {
       const tile = map[row][col];
       const x = col * TILE_SIZE;
       const y = row * TILE_SIZE;
-      if (tile === 1) ctx.drawImage(groundImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 2) ctx.drawImage(dirtImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 3) ctx.drawImage(enemyImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 4) ctx.drawImage(goalImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 5) ctx.drawImage(stoneImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 6) ctx.drawImage(poisonImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 7) ctx.drawImage(trampolineImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 8) ctx.drawImage(ladderImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 11) ctx.drawImage(breakableImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 15) ctx.drawImage(coinImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 16) ctx.drawImage(checkpointImg, x, y, TILE_SIZE, TILE_SIZE);
-      else if (tile === 17) ctx.drawImage(goldgoalImg, x, y, TILE_SIZE, TILE_SIZE);
+      
+      // ダミーブロックの場合は元のブロックの見た目で描画
+      let drawTile = tile;
+      if (tile === 19 && window.dummyOverlays && window.dummyOverlays[`${row},${col}`]) {
+        drawTile = window.dummyOverlays[`${row},${col}`];
+      }
+      
+      if (drawTile === 1) ctx.drawImage(groundImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 2) ctx.drawImage(dirtImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 3) ctx.drawImage(enemyImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 4) ctx.drawImage(goalImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 5) ctx.drawImage(stoneImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 6) ctx.drawImage(poisonImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 7) ctx.drawImage(trampolineImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 8) ctx.drawImage(ladderImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 11) ctx.drawImage(breakableImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 15) ctx.drawImage(coinImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 16) ctx.drawImage(checkpointImg, x, y, TILE_SIZE, TILE_SIZE);
+      else if (drawTile === 17) ctx.drawImage(goldgoalImg, x, y, TILE_SIZE, TILE_SIZE);
     }
   }
   drawEnemies();

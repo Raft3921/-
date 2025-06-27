@@ -41,11 +41,11 @@
     .tile-slot.selected {
       background: #88f;
     }
-    #homeButton, #saveButton, #loadButton, #clearButton {
+    #homeButton, #clearButton, #undoButton, #redoButton, #exportButton, #importButton {
       position: absolute;
       top: 10px;
-      font-size: 16px;
-      padding: 6px 12px;
+      font-size: 20px;
+      padding: 10px 16px;
       z-index: 999;
       background: #fff;
       color: #1a2a4f;
@@ -53,11 +53,22 @@
       border: none;
       font-weight: bold;
       cursor: pointer;
+      min-width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #homeButton { left: 10px; }
-    #saveButton { left: 130px; }
-    #loadButton { left: 250px; }
-    #clearButton { left: 370px; }
+    #clearButton { left: 140px; }
+    #undoButton { left: 270px; }
+    #redoButton { left: 400px; }
+    #exportButton { left: 530px; }
+    #importButton { left: 660px; }
+    
+    #fileInput {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -65,9 +76,12 @@
   <canvas id="gameCanvas" width="1024" height="640"></canvas>
   <div id="slotBar"></div>
   <button id="homeButton">ホームへ</button>
-  <button id="saveButton">保存</button>
-  <button id="loadButton">読み込み</button>
   <button id="clearButton"><img src="assets/clear.png" width="24" height="24"></button>
+  <button id="undoButton">↩︎</button>
+  <button id="redoButton">↪︎</button>
+  <button id="exportButton">💾</button>
+  <button id="importButton">📂</button>
+  <input type="file" id="fileInput" accept=".json">
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const slotName = urlParams.get("slot") || "新しいワールド";
@@ -80,19 +94,39 @@
     const rows = 20;
     const map = Array.from({ length: rows }, () => Array(cols).fill(0));
 
+    // 取り消し・やり直し機能の履歴管理
+    let undoHistory = [];
+    let redoHistory = [];
+    let isUndoRedoAction = false; // 取り消し・やり直し中のフラグ
+
     // --- ワールドデータ自動読み込み ---
     function loadWorldData() {
       const saved = localStorage.getItem("world_" + slotName);
       if (saved) {
         try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length === rows) {
-            map.length = 0;
-            map.push(...parsed);
+          const mapData = JSON.parse(saved);
+          if (Array.isArray(mapData)) {
+            // 古い形式（配列のみ）
+            if (mapData.length === rows) {
+              map.length = 0;
+              map.push(...mapData);
+            }
+            window.dummyOverlays = {};
+          } else if (mapData.map && Array.isArray(mapData.map)) {
+            // 新しい形式（mapとdummyOverlaysを含む）
+            if (mapData.map.length === rows) {
+              map.length = 0;
+              map.push(...mapData.map);
+            }
+            window.dummyOverlays = mapData.dummyOverlays || {};
           }
         } catch (e) {
+          console.error("ワールドデータ読み込みエラー:", e);
           // 読み込み失敗時は何もしない
         }
+      } else {
+        // 保存データがない場合は初期化
+        window.dummyOverlays = {};
       }
     }
     loadWorldData();
@@ -132,6 +166,7 @@
       15: new Image(), // coin
       16: new Image(), // checkpoint
       17: new Image(), // goldgoal
+      19: new Image(), // dummy block
     };
 
     images[0].src = "assets/eraser.png";
@@ -152,13 +187,14 @@
     images[15].src = "assets/coin.png";
     images[16].src = "assets/checkpoint.png";
     images[17].src = "assets/goldgoal.png";
+    images[19].src = "assets/dummy.png"; // ダミーブロック
     
 
     // スロットバー生成
     const slotBar = document.getElementById("slotBar");
     slotBar.innerHTML = "";
-    // 1, 12, 13を除外しつつ15（コイン）、16（中間地点）、17（ゴールドゴール）は含める
-    const slotIndices = Array.from({length: 18}, (_, i) => i).filter(i => i !== 1 && i !== 12 && i !== 13);
+    // 1, 12, 13を除外しつつ15（コイン）、16（中間地点）、17（ゴールドゴール）、19（ダミー）は含める
+    const slotIndices = Array.from({length: 20}, (_, i) => i).filter(i => i !== 1 && i !== 12 && i !== 13 && i !== 18);
     for (const i of slotIndices) {
       const div = document.createElement("div");
       div.className = "tile-slot";
@@ -220,7 +256,9 @@ function showConfirm(text, onYes, onNo) {
 
     // ボタンイベント
     document.getElementById("homeButton").onclick = () => {
-      showConfirm("ホームに戻りますか？未保存のマップは失われます。", () => {
+      showConfirm("ホームに戻りますか？", () => {
+        // 自動保存処理
+        saveMap();
         // サムネイル保存処理
         draw();
         setTimeout(function() {
@@ -238,39 +276,47 @@ function showConfirm(text, onYes, onNo) {
         }, 0);
       });
     };
-    document.getElementById("saveButton").onclick = () => {
-      showConfirm("本当に保存しますか？", () => {
-        localStorage.setItem("world_" + slotName, JSON.stringify(map));
-        showMessage(slotName + " に保存しました！");
-      });
-    };
-    document.getElementById("loadButton").onclick = () => {
-      showConfirm("保存済みデータを読み込みますか？今のマップは上書きされます。", () => {
-        const savedMap = localStorage.getItem("world_" + slotName);
-        if (savedMap) {
-          try {
-            const parsed = JSON.parse(savedMap);
-            map.length = 0;
-            map.push(...parsed);
-            showMessage(slotName + " を読み込みました！");
-          } catch (e) {
-            showMessage("読み込み失敗: " + e.message);
-          }
-        } else {
-          showMessage(slotName + " に保存されていません！");
-        }
-      });
-    };
     document.getElementById("clearButton").onclick = () => {
       showConfirm("マップをクリアしますか？この操作は取り消せません。", () => {
+        saveMapState(); // クリア前の状態を保存
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
             map[r][c] = 0;
           }
         }
+        window.dummyOverlays = {};
         showMessage("マップをクリアしました！");
       });
     };
+    document.getElementById("undoButton").onclick = undo;
+    document.getElementById("redoButton").onclick = redo;
+    document.getElementById("exportButton").onclick = exportWorldData;
+    document.getElementById("importButton").onclick = () => {
+      document.getElementById("fileInput").click();
+    };
+
+    // ファイル選択時のイベント
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        importWorldData(file);
+        // ファイル入力をリセット（同じファイルを再度選択できるように）
+        e.target.value = "";
+      }
+    });
+
+    // キーボードショートカット
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey || e.metaKey) { // Ctrl (Windows) または Cmd (Mac)
+        if (e.key === "z") {
+          e.preventDefault();
+          undo();
+        } else if (e.key === "y") {
+          e.preventDefault();
+          redo();
+        }
+      }
+    });
 
     const camera = { x: 0, y: 0 };
     const keys = {};
@@ -278,9 +324,19 @@ function showConfirm(text, onYes, onNo) {
     document.addEventListener("keyup", e => keys[e.key] = false);
 
     let isMouseDown = false;
-    canvas.addEventListener("mousedown", e => isMouseDown = true);
-    canvas.addEventListener("mouseup", e => isMouseDown = false);
-    canvas.addEventListener("mouseleave", e => isMouseDown = false);
+    let hasSavedState = false; // ドラッグ中の状態保存フラグ
+    canvas.addEventListener("mousedown", e => {
+      isMouseDown = true;
+      hasSavedState = false; // ドラッグ開始時にリセット
+    });
+    canvas.addEventListener("mouseup", e => {
+      isMouseDown = false;
+      hasSavedState = false; // ドラッグ終了時にリセット
+    });
+    canvas.addEventListener("mouseleave", e => {
+      isMouseDown = false;
+      hasSavedState = false; // マウスが離れた時もリセット
+    });
 
     canvas.addEventListener("mousemove", placeTile);
     canvas.addEventListener("click", placeTile);
@@ -293,6 +349,12 @@ function showConfirm(text, onYes, onNo) {
       const col = Math.floor(mx / TILE_SIZE);
       const row = Math.floor(my / TILE_SIZE);
       if (col >= 0 && col < cols && row >= 0 && row < rows) {
+        // ドラッグ中の最初の1回だけ、またはクリック時に状態を保存
+        if (!hasSavedState || e.type === "click") {
+          saveMapState();
+          hasSavedState = true;
+        }
+        
         if (selectedTile === 10) {
           for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -300,6 +362,16 @@ function showConfirm(text, onYes, onNo) {
             }
           }
           map[row][col] = 10;
+        } else if (selectedTile === 19) { // ダミーブロック
+          // ダミーブロックは既存ブロックの上にのみ置ける
+          const existingTile = map[row][col];
+          if (existingTile !== 0 && existingTile !== 19) {
+            // 既存ブロックの上にダミーを重ねる（見た目は元のブロック、当たり判定なし）
+            map[row][col] = 19; // ダミーブロックとして記録
+            // 元のブロックの情報を保存（見た目用）
+            if (!window.dummyOverlays) window.dummyOverlays = {};
+            window.dummyOverlays[`${row},${col}`] = existingTile;
+          }
         } else if (selectedTile === 14) { // rail3を設置
           map[row][col] = 14;
           // 連結判定して自動置換
@@ -380,11 +452,17 @@ function showConfirm(text, onYes, onNo) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#aee";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 1. 通常のタイルを描画（ダミーブロックは除外）
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const tile = map[r][c];
           const x = c * TILE_SIZE - camera.x;
           const y = r * TILE_SIZE - camera.y;
+          
+          // ダミーブロックは後で描画するのでスキップ
+          if (tile === 19) continue;
+          
           if (tile >= 12 && tile <= 14) {
             // レール描画
             if (tile === 12) {
@@ -408,6 +486,51 @@ function showConfirm(text, onYes, onNo) {
             }
           } else if (tile !== 0 && images[tile]) {
             ctx.drawImage(images[tile], x, y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+      
+      // 2. ダミーブロックを一番手前に描画
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tile = map[r][c];
+          if (tile === 19 && window.dummyOverlays && window.dummyOverlays[`${r},${c}`]) {
+            const x = c * TILE_SIZE - camera.x;
+            const y = r * TILE_SIZE - camera.y;
+            const drawTile = window.dummyOverlays[`${r},${c}`];
+            
+            // ダミーブロックの見た目を描画（元のブロックの見た目）
+            if (drawTile >= 12 && drawTile <= 14) {
+              // レール描画
+              if (drawTile === 12) {
+                ctx.drawImage(images[12], x, y, TILE_SIZE, TILE_SIZE); // 中間
+              } else if (drawTile === 13) {
+                // 左端か右端か判定
+                const left = c > 0 && map[r][c-1] >= 12 && map[r][c-1] <= 14;
+                if (left) {
+                  // 右端
+                  ctx.drawImage(images[13], x, y, TILE_SIZE, TILE_SIZE);
+                } else {
+                  // 左端（反転）
+                  ctx.save();
+                  ctx.translate(x + TILE_SIZE, y);
+                  ctx.scale(-1, 1);
+                  ctx.drawImage(images[13], 0, 0, TILE_SIZE, TILE_SIZE);
+                  ctx.restore();
+                }
+              } else if (drawTile === 14) {
+                ctx.drawImage(images[14], x, y, TILE_SIZE, TILE_SIZE); // 単体
+              }
+            } else if (drawTile !== 0 && images[drawTile]) {
+              ctx.drawImage(images[drawTile], x, y, TILE_SIZE, TILE_SIZE);
+            }
+            
+            // ダミーブロックであることを示すオーバーレイ（半透明の赤い枠）
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+            ctx.restore();
           }
         }
       }
@@ -444,6 +567,174 @@ function showConfirm(text, onYes, onNo) {
     Promise.all(Object.values(images).map(img => new Promise(res => img.onload = res))).then(() => {
       gameLoop();
     });
+
+    function saveMap() {
+      const mapData = {
+        map: map,
+        dummyOverlays: window.dummyOverlays || {}
+      };
+      localStorage.setItem("world_" + slotName, JSON.stringify(mapData));
+    }
+
+    function loadMap() {
+      const saved = localStorage.getItem("world_" + slotName);
+      if (saved) {
+        try {
+          const mapData = JSON.parse(saved);
+          if (Array.isArray(mapData)) {
+            // 古い形式（配列のみ）
+            map.length = 0;
+            map.push(...mapData);
+            window.dummyOverlays = {};
+            showMessage("マップを読み込みました！");
+          } else if (mapData.map && Array.isArray(mapData.map)) {
+            // 新しい形式（mapとdummyOverlaysを含む）
+            map.length = 0;
+            map.push(...mapData.map);
+            window.dummyOverlays = mapData.dummyOverlays || {};
+            showMessage("マップを読み込みました！");
+          }
+        } catch (e) {
+          showMessage("読み込みエラー: " + e.message);
+        }
+      } else {
+        showMessage("保存されたマップがありません！");
+      }
+    }
+
+    // マップの状態を保存
+    function saveMapState() {
+      if (isUndoRedoAction) return; // 取り消し・やり直し中は保存しない
+      
+      const mapCopy = map.map(row => [...row]); // ディープコピー
+      const dummyOverlaysCopy = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      
+      undoHistory.push({
+        map: mapCopy,
+        dummyOverlays: dummyOverlaysCopy
+      });
+      
+      // 履歴は最大20個まで保持
+      if (undoHistory.length > 20) {
+        undoHistory.shift();
+      }
+      
+      // やり直し履歴をクリア
+      redoHistory = [];
+    }
+
+    // 取り消し機能
+    function undo() {
+      if (undoHistory.length === 0) {
+        showMessage("取り消す操作がありません");
+        return;
+      }
+      
+      // 現在の状態をやり直し履歴に保存
+      const currentMap = map.map(row => [...row]);
+      const currentDummyOverlays = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      redoHistory.push({
+        map: currentMap,
+        dummyOverlays: currentDummyOverlays
+      });
+      
+      // 前の状態を復元
+      const previousState = undoHistory.pop();
+      isUndoRedoAction = true;
+      
+      map.length = 0;
+      map.push(...previousState.map);
+      window.dummyOverlays = previousState.dummyOverlays;
+      
+      isUndoRedoAction = false;
+      showMessage("取り消しました");
+    }
+
+    // やり直し機能
+    function redo() {
+      if (redoHistory.length === 0) {
+        showMessage("やり直す操作がありません");
+        return;
+      }
+      
+      // 現在の状態をやり直し履歴に保存
+      const currentMap = map.map(row => [...row]);
+      const currentDummyOverlays = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      redoHistory.push({
+        map: currentMap,
+        dummyOverlays: currentDummyOverlays
+      });
+      
+      // 次の状態を復元
+      const nextState = redoHistory.pop();
+      isUndoRedoAction = true;
+      
+      map.length = 0;
+      map.push(...nextState.map);
+      window.dummyOverlays = nextState.dummyOverlays;
+      
+      isUndoRedoAction = false;
+      showMessage("やり直しました");
+    }
+
+    // ワールドデータをJSONファイルとしてエクスポート
+    function exportWorldData() {
+      const worldData = {
+        name: slotName,
+        map: map,
+        dummyOverlays: window.dummyOverlays || {},
+        exportDate: new Date().toISOString(),
+        version: "1.0"
+      };
+      
+      const dataStr = JSON.stringify(worldData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `${slotName}_world.json`;
+      link.click();
+      
+      URL.revokeObjectURL(link.href);
+      showMessage("ワールドデータをエクスポートしました！");
+    }
+
+    // JSONファイルからワールドデータをインポート
+    function importWorldData(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const worldData = JSON.parse(e.target.result);
+          
+          // データ形式の検証
+          if (!worldData.map || !Array.isArray(worldData.map)) {
+            showMessage("無効なワールドデータファイルです");
+            return;
+          }
+          
+          if (worldData.map.length !== rows) {
+            showMessage("マップサイズが一致しません");
+            return;
+          }
+          
+          showConfirm(`ワールド「${worldData.name || '不明'}」を読み込みますか？現在のマップは上書きされます。`, () => {
+            // 現在の状態を履歴に保存
+            saveMapState();
+            
+            // データを読み込み
+            map.length = 0;
+            map.push(...worldData.map);
+            window.dummyOverlays = worldData.dummyOverlays || {};
+            
+            showMessage("ワールドデータをインポートしました！");
+          });
+          
+        } catch (error) {
+          showMessage("ファイルの読み込みに失敗しました: " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
 
   </script>
 </body>

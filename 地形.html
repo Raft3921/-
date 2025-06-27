@@ -97,6 +97,21 @@
     }
     loadWorldData();
 
+    // 設定の読み込み
+    function loadEditorSettings() {
+      const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+      const defaults = {
+        showGrid: true,
+        snapToGrid: true
+      };
+      
+      window.showGrid = settings.showGrid !== undefined ? settings.showGrid : defaults.showGrid;
+      window.snapToGrid = settings.snapToGrid !== undefined ? settings.snapToGrid : defaults.snapToGrid;
+      
+      console.log('エディタ設定読み込み完了:', { showGrid: window.showGrid, snapToGrid: window.snapToGrid });
+    }
+    loadEditorSettings();
+
     // images（0:消しゴム, 1:地面, 2:土, 3:敵, 4:ゴール, 5:石, 6:毒, 7:きのこ, 8:ハシゴ, 9:動く敵）
     const images = {
       0: new Image(),
@@ -394,6 +409,28 @@ function showConfirm(text, onYes, onNo) {
           } else if (tile !== 0 && images[tile]) {
             ctx.drawImage(images[tile], x, y, TILE_SIZE, TILE_SIZE);
           }
+        }
+      }
+      
+      // グリッド描画
+      if (window.showGrid) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.lineWidth = 1;
+        // 縦線
+        for (let c = 0; c <= cols; c++) {
+          const x = c * TILE_SIZE - camera.x;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        // 横線
+        for (let r = 0; r <= rows; r++) {
+          const y = r * TILE_SIZE - camera.y;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
         }
       }
     }

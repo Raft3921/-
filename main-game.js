@@ -253,6 +253,37 @@ document.addEventListener("keyup", (e) => keys[e.key] = false);
 if (typeof window.dynamicScale === 'undefined') window.dynamicScale = SCALE;
 let targetScale = SCALE;
 
+// 設定の読み込み
+function loadGameSettings() {
+  const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+  const defaults = {
+    cameraSpeed: 0.1,
+    zoom: 2.0,
+    difficulty: 'normal'
+  };
+  
+  // カメラ追従速度
+  window.cameraSpeed = settings.cameraSpeed !== undefined ? parseFloat(settings.cameraSpeed) : defaults.cameraSpeed;
+  
+  // ズーム倍率（設定値をそのまま使用）
+  window.dynamicScale = settings.zoom !== undefined ? parseFloat(settings.zoom) : defaults.zoom;
+  targetScale = window.dynamicScale;
+  
+  // 難易度設定
+  window.gameDifficulty = settings.difficulty || defaults.difficulty;
+  
+  console.log('設定読み込み完了:', { cameraSpeed: window.cameraSpeed, zoom: window.dynamicScale, difficulty: window.gameDifficulty });
+}
+loadGameSettings();
+
+// 設定変更時のリアルタイム反映
+window.addEventListener('storage', (e) => {
+  if (e.key === 'gameSettings') {
+    console.log('設定が変更されました');
+    loadGameSettings();
+  }
+});
+
 // メイン更新
 function update() {
   player.vx = 0; isMoving = false;
@@ -286,7 +317,7 @@ function update() {
 
   if (!isDead) {
     // プレイヤーがx軸でほぼ中心に来るようにカメラ調整
-    const centerOffsetX = 0.1; // 0.0:完全中心, 0.1:少し左寄り
+    const centerOffsetX = 0.0; // 0.0:完全中心, 0.1:少し左寄り
     cameraX = player.x + player.width / 2 - canvas.width / (2 * window.dynamicScale) - (canvas.width * centerOffsetX / window.dynamicScale);
     cameraY = player.y + player.height / 2 - canvas.height / (2 * window.dynamicScale);
     const mapPixelHeight = map.length * TILE_SIZE;
@@ -512,8 +543,8 @@ function update() {
   }
 
   // カメラは常にプレイヤー中心
-  cameraX += (player.x + player.width / 2 - cameraX - canvas.width / (2 * window.dynamicScale)) * 0.1;
-  cameraY += (player.y + player.height / 2 - cameraY - canvas.height / (2 * window.dynamicScale)) * 0.1;
+  cameraX += (player.x + player.width / 2 - cameraX - canvas.width / (2 * window.dynamicScale)) * window.cameraSpeed;
+  cameraY += (player.y + player.height / 2 - cameraY - canvas.height / (2 * window.dynamicScale)) * window.cameraSpeed;
   // カメラ制限
   cameraX = Math.max(0, Math.min(cameraX, map[0].length * TILE_SIZE - canvas.width / window.dynamicScale));
   cameraY = Math.max(0, Math.min(cameraY, map.length * TILE_SIZE - canvas.height / window.dynamicScale));

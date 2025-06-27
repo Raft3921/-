@@ -34,7 +34,7 @@
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <canvas id="gameCanvas" width="1024" height="640"></canvas>
 
   <button id="backHomeBtn">ホームへ戻る</button>
 
@@ -69,32 +69,48 @@
           location.href = 'home.html';
         };
       }
-    });
 
-    function resizeGameCanvas() {
-      const canvas = document.getElementById('gameCanvas');
-      // 16:10比率を維持しつつ最大化
-      let w = window.innerWidth;
-      let h = window.innerHeight;
-      const aspect = 16/10;
-      if (w/h > aspect) {
-        w = h * aspect;
-      } else {
-        h = w / aspect;
+      // 設定の読み込みと反映
+      function loadPlaySettings() {
+        const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+        
+        // フルスクリーン設定
+        if (settings.fullscreen) {
+          console.log('フルスクリーン設定が有効です');
+          // フルスクリーン切り替えボタンを追加（スコア表示と被らない位置）
+          const fullscreenBtn = document.createElement('button');
+          fullscreenBtn.textContent = 'フルスクリーン';
+          fullscreenBtn.style.position = 'absolute';
+          fullscreenBtn.style.top = '20px';
+          fullscreenBtn.style.right = '20px';
+          fullscreenBtn.style.zIndex = '1000';
+          fullscreenBtn.style.padding = '10px 20px';
+          fullscreenBtn.style.fontSize = '16px';
+          fullscreenBtn.style.background = '#fff';
+          fullscreenBtn.style.color = '#1a2a4f';
+          fullscreenBtn.style.borderRadius = '12px';
+          fullscreenBtn.style.border = 'none';
+          fullscreenBtn.style.fontWeight = 'bold';
+          fullscreenBtn.style.cursor = 'pointer';
+          fullscreenBtn.onclick = () => {
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              document.documentElement.requestFullscreen();
+            }
+          };
+          document.body.appendChild(fullscreenBtn);
+        }
+        
+        // 解像度設定（現在は自動調整のため、設定値は参考として保存）
+        if (settings.resolution && settings.resolution !== 'auto') {
+          console.log('解像度設定:', settings.resolution);
+        }
+        
+        console.log('プレイ設定読み込み完了');
       }
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
-      // dynamicScaleを自動調整
-      // 基準サイズ: 1024x640, 基準倍率: 2.0
-      const baseW = 1024, baseH = 640, baseScale = 2.0;
-      const scaleW = w / baseW;
-      const scaleH = h / baseH;
-      window.dynamicScale = baseScale * Math.min(scaleW, scaleH);
-    }
-    window.addEventListener('resize', resizeGameCanvas);
-    window.addEventListener('DOMContentLoaded', resizeGameCanvas);
+      loadPlaySettings();
+    });
   </script>
 </body>
 </html>

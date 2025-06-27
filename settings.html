@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>設定 - ラフトの冒険</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #0a1b2a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .settings-container {
+      background: white;
+      color: #0a1b2a;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #1a2a4f;
+    }
+    .setting-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    .setting-section h2 {
+      margin-top: 0;
+      color: #1a2a4f;
+      border-bottom: 2px solid #4466ff;
+      padding-bottom: 10px;
+    }
+    .setting-item {
+      margin-bottom: 20px;
+    }
+    .setting-item label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #1a2a4f;
+    }
+    .setting-item input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    .setting-item input[type="checkbox"] {
+      margin-right: 10px;
+    }
+    .setting-item select {
+      width: 100%;
+      padding: 8px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .value-display {
+      background: #e9ecef;
+      padding: 5px 10px;
+      border-radius: 5px;
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    .buttons {
+      text-align: center;
+      margin-top: 30px;
+    }
+    button {
+      background: #4466ff;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 0 10px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #3355ee;
+    }
+    button.secondary {
+      background: #6c757d;
+    }
+    button.secondary:hover {
+      background: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-container">
+    <h1>設定</h1>
+    
+    <!-- メッセージ表示エリア -->
+    <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+    
+    <!-- 画面設定 -->
+    <div class="setting-section">
+      <h2>画面設定</h2>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="fullscreen"> フルスクリーンでプレイ
+        </label>
+      </div>
+      <div class="setting-item">
+        <label>画面解像度</label>
+        <select id="resolution">
+          <option value="auto">自動（推奨）</option>
+          <option value="1024x640">1024x640</option>
+          <option value="1280x800">1280x800</option>
+          <option value="1920x1080">1920x1080</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- カメラ設定 -->
+    <div class="setting-section">
+      <h2>カメラ設定</h2>
+      <div class="setting-item">
+        <label>カメラ追従速度 <span class="value-display" id="cameraSpeedValue">0.1</span></label>
+        <input type="range" id="cameraSpeed" min="0.05" max="0.2" step="0.01" value="0.1">
+      </div>
+      <div class="setting-item">
+        <label>ズーム倍率 <span class="value-display" id="zoomValue">2.0</span></label>
+        <input type="range" id="zoom" min="1.0" max="3.0" step="0.1" value="2.0">
+      </div>
+    </div>
+
+    <!-- ゲーム設定 -->
+    <div class="setting-section">
+      <h2>ゲーム設定</h2>
+      <div class="setting-item">
+        <label>効果音音量 <span class="value-display" id="sfxVolumeValue">50%</span></label>
+        <input type="range" id="sfxVolume" min="0" max="100" value="50">
+      </div>
+      <div class="setting-item">
+        <label>BGM音量 <span class="value-display" id="bgmVolumeValue">30%</span></label>
+        <input type="range" id="bgmVolume" min="0" max="100" value="30">
+      </div>
+      <div class="setting-item">
+        <label>難易度</label>
+        <select id="difficulty">
+          <option value="easy">簡単</option>
+          <option value="normal" selected>普通</option>
+          <option value="hard">難しい</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- エディタ設定 -->
+    <div class="setting-section">
+      <h2>エディタ設定</h2>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="showGrid" checked> グリッド表示
+        </label>
+      </div>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="snapToGrid" checked> グリッドにスナップ
+        </label>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="saveBtn">保存</button>
+      <button id="resetBtn" class="secondary">リセット</button>
+      <button id="backBtn" class="secondary">戻る</button>
+    </div>
+  </div>
+
+  <script>
+    // 設定の読み込み
+    function loadSettings() {
+      const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+      
+      // デフォルト値
+      const defaults = {
+        fullscreen: false,
+        resolution: 'auto',
+        cameraSpeed: 0.1,
+        zoom: 2.0,
+        sfxVolume: 50,
+        bgmVolume: 30,
+        difficulty: 'normal',
+        showGrid: true,
+        snapToGrid: true
+      };
+
+      // 設定を適用
+      Object.keys(defaults).forEach(key => {
+        const element = document.getElementById(key);
+        if (element) {
+          if (element.type === 'checkbox') {
+            element.checked = settings[key] !== undefined ? settings[key] : defaults[key];
+          } else if (element.type === 'range') {
+            element.value = settings[key] !== undefined ? settings[key] : defaults[key];
+            updateRangeValue(key);
+          } else {
+            element.value = settings[key] !== undefined ? settings[key] : defaults[key];
+          }
+        }
+      });
+    }
+
+    // 範囲スライダーの値表示更新
+    function updateRangeValue(id) {
+      const element = document.getElementById(id);
+      const valueElement = document.getElementById(id + 'Value');
+      if (element && valueElement) {
+        if (id === 'cameraSpeed') {
+          valueElement.textContent = parseFloat(element.value).toFixed(2);
+        } else if (id === 'zoom') {
+          valueElement.textContent = parseFloat(element.value).toFixed(1);
+        } else if (id === 'sfxVolume' || id === 'bgmVolume') {
+          valueElement.textContent = element.value + '%';
+        }
+      }
+    }
+
+    // 設定の保存
+    function saveSettings() {
+      const settings = {};
+      const elements = ['fullscreen', 'resolution', 'cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume', 'difficulty', 'showGrid', 'snapToGrid'];
+      
+      elements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          if (element.type === 'checkbox') {
+            settings[id] = element.checked;
+          } else {
+            settings[id] = element.value;
+          }
+        }
+      });
+
+      localStorage.setItem('gameSettings', JSON.stringify(settings));
+      showMessage('設定を保存しました！');
+    }
+
+    // 設定のリセット
+    function resetSettings() {
+      if (confirm('設定をデフォルトに戻しますか？')) {
+        localStorage.removeItem('gameSettings');
+        loadSettings();
+        showMessage('設定をリセットしました！');
+      }
+    }
+
+    // イベントリスナー
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+
+      // 範囲スライダーの値表示更新
+      ['cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.addEventListener('input', () => updateRangeValue(id));
+        }
+      });
+
+      // ボタンイベント
+      document.getElementById('saveBtn').onclick = saveSettings;
+      document.getElementById('resetBtn').onclick = resetSettings;
+      document.getElementById('backBtn').onclick = () => location.href = 'home.html';
+    });
+
+    // メッセージ表示関数
+    function showMessage(message) {
+      const messageElement = document.getElementById('message');
+      if (messageElement) {
+        messageElement.textContent = message;
+        messageElement.style.display = 'block';
+        setTimeout(() => {
+          messageElement.style.display = 'none';
+        }, 3000);
+      }
+    }
+  </script>
+</body>
+</html> 

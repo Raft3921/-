@@ -218,4 +218,12 @@ createBtn.onclick = () => {
   loadSlots();
 };
 
+// 設定ボタン
+const settingsBtn = document.getElementById("settingsBtn");
+if (settingsBtn) {
+  settingsBtn.onclick = () => {
+    location.href = "settings.html";
+  };
+}
+
 loadSlots();

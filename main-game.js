@@ -285,11 +285,12 @@ function update() {
   }
 
   if (!isDead) {
-    const cameraZoom = 20; // 1.0:等倍, 1.3:引き気味
-    cameraX = player.x + player.width / 2 - canvas.width / (2 * window.dynamicScale * cameraZoom);
-    cameraY = player.y + player.height / 2 - canvas.height / (2 * window.dynamicScale * cameraZoom);
+    // プレイヤーがx軸でほぼ中心に来るようにカメラ調整
+    const centerOffsetX = 0.1; // 0.0:完全中心, 0.1:少し左寄り
+    cameraX = player.x + player.width / 2 - canvas.width / (2 * window.dynamicScale) - (canvas.width * centerOffsetX / window.dynamicScale);
+    cameraY = player.y + player.height / 2 - canvas.height / (2 * window.dynamicScale);
     const mapPixelHeight = map.length * TILE_SIZE;
-    const viewHeight = canvas.height / (window.dynamicScale * cameraZoom);
+    const viewHeight = canvas.height / window.dynamicScale;
     const maxCameraY = mapPixelHeight - viewHeight;
     if (cameraY > maxCameraY - 32) cameraY = Math.min(cameraY, maxCameraY);
     if (cameraY < 0) cameraY = 0;

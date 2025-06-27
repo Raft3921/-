@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ラフトの冒険</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #1a2a4f;
+      font-family: "Yu Gothic", sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #113;
+      border: 2px solid #1a2a4f;
+      image-rendering: pixelated;
+    }
+    #backHomeBtn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      z-index: 1000;
+      background: #fff;
+      color: #1a2a4f;
+      border-radius: 12px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <button id="backHomeBtn">ホームへ戻る</button>
+
+  <img id="player" src="assets/player.png" style="display: none;">
+  <img id="player-run1" src="assets/player-run1.png" style="display: none;">
+  <img id="player-run2" src="assets/player-run2.png" style="display: none;">
+  <img id="player-jump1" src="assets/player-jump1.png" style="display: none;">
+  <img id="player-jump2" src="assets/player-jump2.png" style="display: none;">
+
+  <img id="deathGif" src="assets/death.gif" style="
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: none;
+  z-index: 9999;
+  pointer-events: none;
+  object-fit: cover;
+  image-rendering: pixelated;
+" />
+
+
+  <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+
+  <!-- main-game.jsのみでテストしたい場合は、下だけでOK -->
+  <script src="main-game.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const homeBtn = document.getElementById('backHomeBtn');
+      if (homeBtn) {
+        homeBtn.onclick = function() {
+          location.href = 'home.html';
+        };
+      }
+    });
+
+    function resizeGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      // 16:10比率を維持しつつ最大化
+      let w = window.innerWidth;
+      let h = window.innerHeight;
+      const aspect = 16/10;
+      if (w/h > aspect) {
+        w = h * aspect;
+      } else {
+        h = w / aspect;
+      }
+      canvas.width = Math.floor(w);
+      canvas.height = Math.floor(h);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      // dynamicScaleを自動調整
+      // 基準サイズ: 1024x640, 基準倍率: 2.0
+      const baseW = 1024, baseH = 640, baseScale = 2.0;
+      const scaleW = w / baseW;
+      const scaleH = h / baseH;
+      window.dynamicScale = baseScale * Math.min(scaleW, scaleH);
+    }
+    window.addEventListener('resize', resizeGameCanvas);
+    window.addEventListener('DOMContentLoaded', resizeGameCanvas);
+  </script>
+</body>
+</html>

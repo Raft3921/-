@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>2Dマップエディタ（ドラッグ設置対応）</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Yu Gothic", sans-serif;
+      background: #000;
+      color: #1a2a4f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
+      background: #aee;
+      image-rendering: pixelated;
+      border: 2px solid #1a2a4f;
+    }
+    #slotBar {
+      display: flex;
+      justify-content: center;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 8px;
+      gap: 12px;
+    }
+    .tile-slot {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      border: 2px solid #1a2a4f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      background: #eef;
+    }
+    .tile-slot.selected {
+      background: #88f;
+    }
+    #homeButton, #saveButton, #loadButton, #clearButton {
+      position: absolute;
+      top: 10px;
+      font-size: 16px;
+      padding: 6px 12px;
+      z-index: 999;
+      background: #fff;
+      color: #1a2a4f;
+      border-radius: 12px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #homeButton { left: 10px; }
+    #saveButton { left: 130px; }
+    #loadButton { left: 250px; }
+    #clearButton { left: 370px; }
+  </style>
+</head>
+<body>
+  <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+  <canvas id="gameCanvas" width="1024" height="640"></canvas>
+  <div id="slotBar"></div>
+  <button id="homeButton">ホームへ</button>
+  <button id="saveButton">保存</button>
+  <button id="loadButton">読み込み</button>
+  <button id="clearButton"><img src="assets/clear.png" width="24" height="24"></button>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const slotName = urlParams.get("slot") || "新しいワールド";
+
+    const TILE_SIZE = 32;
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const cols = 100;
+    const rows = 20;
+    const map = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+    // --- ワールドデータ自動読み込み ---
+    function loadWorldData() {
+      const saved = localStorage.getItem("world_" + slotName);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === rows) {
+            map.length = 0;
+            map.push(...parsed);
+          }
+        } catch (e) {
+          // 読み込み失敗時は何もしない
+        }
+      }
+    }
+    loadWorldData();
+
+    // images（0:消しゴム, 1:地面, 2:土, 3:敵, 4:ゴール, 5:石, 6:毒, 7:きのこ, 8:ハシゴ, 9:動く敵）
+    const images = {
+      0: new Image(),
+      1: new Image(),
+      2: new Image(),
+      3: new Image(),
+      4: new Image(),
+      5: new Image(),
+      6: new Image(),
+      7: new Image(),
+      8: new Image(),
+      9: new Image(),
+      10:new Image(),
+      11:new Image(), // breakable block
+      12: new Image(), // rail1
+      13: new Image(), // rail2
+      14: new Image(), // rail3
+      15: new Image(), // coin
+      16: new Image(), // checkpoint
+      17: new Image(), // goldgoal
+    };
+
+    images[0].src = "assets/eraser.png";
+    images[1].src = "assets/ground.png";
+    images[2].src = "assets/dirt.png";
+    images[3].src = "assets/enemy.png";
+    images[4].src = "assets/goal.png";
+    images[5].src = "assets/stone.png";
+    images[6].src = "assets/poison.png";
+    images[7].src = "assets/trampoline.png";
+    images[8].src = "assets/ladder.png";
+    images[9].src = "assets/enemy-move1.png";
+    images[10].src = "assets/spawn.png";
+    images[11].src = "assets/breakblock.png"; // breakable block
+    images[12].src = "assets/rail1.png";
+    images[13].src = "assets/rail2.png";
+    images[14].src = "assets/rail3.png";
+    images[15].src = "assets/coin.png";
+    images[16].src = "assets/checkpoint.png";
+    images[17].src = "assets/goldgoal.png";
+    
+
+    // スロットバー生成
+    const slotBar = document.getElementById("slotBar");
+    slotBar.innerHTML = "";
+    // 1, 12, 13を除外しつつ15（コイン）、16（中間地点）、17（ゴールドゴール）は含める
+    const slotIndices = Array.from({length: 18}, (_, i) => i).filter(i => i !== 1 && i !== 12 && i !== 13);
+    for (const i of slotIndices) {
+      const div = document.createElement("div");
+      div.className = "tile-slot";
+      div.dataset.tile = i;
+      div.innerHTML = `<img src="${images[i].src}" width="32" height="32">`;
+      div.onclick = () => {
+        document.querySelectorAll('.tile-slot').forEach(e => e.classList.remove("selected"));
+        div.classList.add("selected");
+        selectedTile = parseInt(div.dataset.tile);
+      };
+      // デフォルトは土（2）
+      if (i === 2) div.classList.add("selected");
+      slotBar.appendChild(div);
+    }
+    let selectedTile = 2;
+
+    function showMessage(text) {
+      const msg = document.getElementById("message");
+      msg.innerText = text;
+      msg.style.display = "block";
+      setTimeout(() => { msg.style.display = "none"; }, 2000);
+    }
+
+function showConfirm(text, onYes, onNo) {
+  let old = document.getElementById("confirmDialog");
+  if (old) old.remove();
+  const dialog = document.createElement("div");
+  dialog.id = "confirmDialog";
+  dialog.style.position = "fixed";
+  dialog.style.top = "50%";
+  dialog.style.left = "50%";
+  dialog.style.transform = "translate(-50%,-50%)";
+  dialog.style.background = "#fff";
+  dialog.style.color = "#1a2a4f";
+  dialog.style.padding = "24px 32px";
+  dialog.style.borderRadius = "18px"; // ←より大きな丸みもOK
+  dialog.style.boxShadow = "0 6px 20px rgba(0,0,0,0.15)";
+  dialog.style.zIndex = "99999";
+  dialog.style.fontWeight = "bold";
+  dialog.style.fontFamily = "\"Yu Gothic\", sans-serif";
+  dialog.innerHTML = `
+    <div style="margin-bottom:18px;font-size:18px;text-align:center;">${text}</div>
+    <div style="display:flex;gap:24px;justify-content:center;">
+      <button id="yesBtn" style="padding:10px 32px;border:none;border-radius:12px;background:#4466ff;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 1px 4px #2235;">はい</button>
+      <button id="noBtn" style="padding:10px 32px;border:none;border-radius:12px;background:#ccc;color:#1a2a4f;font-size:16px;font-weight:bold;cursor:pointer;">いいえ</button>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+  document.getElementById("yesBtn").onclick = () => {
+    dialog.remove();
+    if (onYes) onYes();
+  };
+  document.getElementById("noBtn").onclick = () => {
+    dialog.remove();
+    if (onNo) onNo();
+  };
+}
+
+
+    // ボタンイベント
+    document.getElementById("homeButton").onclick = () => {
+      showConfirm("ホームに戻りますか？未保存のマップは失われます。", () => {
+        // サムネイル保存処理
+        draw();
+        setTimeout(function() {
+          localStorage.removeItem('thumb_' + slotName);
+          const thumbCanvas = document.createElement('canvas');
+          thumbCanvas.width = 256;
+          thumbCanvas.height = 160;
+          const thumbCtx = thumbCanvas.getContext('2d');
+          thumbCtx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          const dataUrl = thumbCanvas.toDataURL('image/png');
+          localStorage.setItem('thumb_' + slotName, dataUrl);
+          setTimeout(function() {
+            location.href = 'home.html';
+          }, 50); // 50msだけ待つ
+        }, 0);
+      });
+    };
+    document.getElementById("saveButton").onclick = () => {
+      showConfirm("本当に保存しますか？", () => {
+        localStorage.setItem("world_" + slotName, JSON.stringify(map));
+        showMessage(slotName + " に保存しました！");
+      });
+    };
+    document.getElementById("loadButton").onclick = () => {
+      showConfirm("保存済みデータを読み込みますか？今のマップは上書きされます。", () => {
+        const savedMap = localStorage.getItem("world_" + slotName);
+        if (savedMap) {
+          try {
+            const parsed = JSON.parse(savedMap);
+            map.length = 0;
+            map.push(...parsed);
+            showMessage(slotName + " を読み込みました！");
+          } catch (e) {
+            showMessage("読み込み失敗: " + e.message);
+          }
+        } else {
+          showMessage(slotName + " に保存されていません！");
+        }
+      });
+    };
+    document.getElementById("clearButton").onclick = () => {
+      showConfirm("マップをクリアしますか？この操作は取り消せません。", () => {
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            map[r][c] = 0;
+          }
+        }
+        showMessage("マップをクリアしました！");
+      });
+    };
+
+    const camera = { x: 0, y: 0 };
+    const keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    let isMouseDown = false;
+    canvas.addEventListener("mousedown", e => isMouseDown = true);
+    canvas.addEventListener("mouseup", e => isMouseDown = false);
+    canvas.addEventListener("mouseleave", e => isMouseDown = false);
+
+    canvas.addEventListener("mousemove", placeTile);
+    canvas.addEventListener("click", placeTile);
+
+    function placeTile(e) {
+      if (!isMouseDown && e.type !== "click") return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left + camera.x;
+      const my = e.clientY - rect.top + camera.y;
+      const col = Math.floor(mx / TILE_SIZE);
+      const row = Math.floor(my / TILE_SIZE);
+      if (col >= 0 && col < cols && row >= 0 && row < rows) {
+        if (selectedTile === 10) {
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              if (map[r][c] === 10) map[r][c] = 0;
+            }
+          }
+          map[row][col] = 10;
+        } else if (selectedTile === 14) { // rail3を設置
+          map[row][col] = 14;
+          // 連結判定して自動置換
+          updateRailTiles(row, col);
+          // 両隣も更新
+          if (col > 0) updateRailTiles(row, col - 1);
+          if (col < cols - 1) updateRailTiles(row, col + 1);
+        } else if (selectedTile === 2) { // 土
+          // dirtを置いた時、上に何もなければground、そうでなければdirt
+          if (row === 0 || map[row-1][col] === 0) {
+            map[row][col] = 1;
+          } else {
+            map[row][col] = 2;
+          }
+          // すべてのgroundについて、上に何かあればdirtに変換
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              if (map[r][c] === 1 && r > 0 && map[r-1][c] !== 0) {
+                map[r][c] = 2;
+              }
+            }
+          }
+        } else {
+          map[row][col] = selectedTile;
+        }
+      }
+    }
+
+    // レール連結状態に応じてタイルIDを自動で置換
+    function updateRailTiles(row, col) {
+      if (map[row][col] < 12 || map[row][col] > 14) return;
+      const left = col > 0 && map[row][col - 1] >= 12 && map[row][col - 1] <= 14;
+      const right = col < cols - 1 && map[row][col + 1] >= 12 && map[row][col + 1] <= 14;
+      if (!left && !right) {
+        map[row][col] = 14; // 単体
+      } else if (left && right) {
+        map[row][col] = 12; // 中間
+      } else if (right) {
+        map[row][col] = 13; // 右端
+      } else if (left) {
+        map[row][col] = 13; // 左端（反転描画は描画時に）
+      }
+    }
+
+    function update() {
+      const camSpeed = 8;
+      if (keys["a"]) camera.x -= camSpeed;
+      if (keys["d"]) camera.x += camSpeed;
+      if (keys["w"]) camera.y -= camSpeed;
+      if (keys["s"]) camera.y += camSpeed;
+      camera.x = Math.max(0, Math.min(camera.x, cols * TILE_SIZE - canvas.width));
+      camera.y = Math.max(0, Math.min(camera.y, rows * TILE_SIZE - canvas.height));
+      
+      // 土と草の変換処理（0.5秒間に一度）
+      if (!window.groundDirtTimer) window.groundDirtTimer = 0;
+      window.groundDirtTimer++;
+      if (window.groundDirtTimer >= 30) { // 60fps * 0.5秒 = 30フレーム
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 1 && r > 0 && map[r-1][c] !== 0) {
+              // スコアをゲットできるブロック、チェックポイント、スポーン地点、動く敵は除外
+              const tileAbove = map[r-1][c];
+              if (tileAbove !== 4 && tileAbove !== 15 && tileAbove !== 16 && tileAbove !== 17 && tileAbove !== 10 && tileAbove !== 3) {
+                map[r][c] = 2; // groundの上に何かあればdirtに変換
+              }
+            }
+            if (map[r][c] === 2 && (r === 0 || map[r-1][c] === 0)) {
+              map[r][c] = 1; // dirtの上に何もなければgroundに変換
+            }
+          }
+        }
+        window.groundDirtTimer = 0;
+      }
+    }
+    
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#aee";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tile = map[r][c];
+          const x = c * TILE_SIZE - camera.x;
+          const y = r * TILE_SIZE - camera.y;
+          if (tile >= 12 && tile <= 14) {
+            // レール描画
+            if (tile === 12) {
+              ctx.drawImage(images[12], x, y, TILE_SIZE, TILE_SIZE); // 中間
+            } else if (tile === 13) {
+              // 左端か右端か判定
+              const left = c > 0 && map[r][c-1] >= 12 && map[r][c-1] <= 14;
+              if (left) {
+                // 右端
+                ctx.drawImage(images[13], x, y, TILE_SIZE, TILE_SIZE);
+              } else {
+                // 左端（反転）
+                ctx.save();
+                ctx.translate(x + TILE_SIZE, y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(images[13], 0, 0, TILE_SIZE, TILE_SIZE);
+                ctx.restore();
+              }
+            } else if (tile === 14) {
+              ctx.drawImage(images[14], x, y, TILE_SIZE, TILE_SIZE); // 単体
+            }
+          } else if (tile !== 0 && images[tile]) {
+            ctx.drawImage(images[tile], x, y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    Promise.all(Object.values(images).map(img => new Promise(res => img.onload = res))).then(() => {
+      gameLoop();
+    });
+
+  </script>
+</body>
+</html>

@@ -120,3 +120,49 @@ button:disabled {
   font-weight: bold;
   min-width: 60px;
 }
+
+/* キャラクター選択スタイル */
+.char-option {
+  display: flex;
+  align-items: center;
+}
+
+.char-option input[type="radio"] {
+  display: none;
+}
+
+.char-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: #1a2a4f;
+  min-width: 100px;
+}
+
+.char-label:hover {
+  border-color: #4466ff;
+  background: #f0f4ff;
+}
+
+.char-option input[type="radio"]:checked + .char-label {
+  border-color: #4466ff;
+  background: #4466ff;
+  color: white;
+  transform: scale(1.05);
+}
+
+.char-label img {
+  margin-bottom: 5px;
+  image-rendering: pixelated;
+}
+
+.char-label span {
+  font-size: 12px;
+  font-weight: bold;
+}

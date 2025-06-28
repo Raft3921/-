@@ -70,6 +70,70 @@ window.canvas = canvas;
 window.ctx = ctx;
 window.slotName = slotName;
 
+// 画像読み込み
+const playerImg = document.getElementById("player");
+const playerRun1Img = document.getElementById("player-run1");
+const playerRun2Img = document.getElementById("player-run2");
+const playerJump1Img = document.getElementById("player-jump1");
+const playerJump2Img = document.getElementById("player-jump2");
+
+// キャラクター画像の定義
+const characterImages = {
+  raft: {
+    idle: playerImg,
+    run1: playerRun1Img,
+    run2: playerRun2Img,
+    jump1: playerJump1Img,
+    jump2: playerJump2Img
+  },
+  mai: {
+    idle: new Image(),
+    run1: new Image(),
+    run2: new Image(),
+    jump1: new Image(),
+    jump2: new Image()
+  },
+  tanutsuna: {
+    idle: new Image(),
+    run1: new Image(),
+    run2: new Image(),
+    jump1: new Image(),
+    jump2: new Image()
+  }
+};
+
+// まいの画像を読み込み
+characterImages.mai.idle.src = "assets/mai.png";
+characterImages.mai.run1.src = "assets/mai-run1.png";
+characterImages.mai.run2.src = "assets/mai-run2.png";
+characterImages.mai.jump1.src = "assets/mai-jump1.png";
+characterImages.mai.jump2.src = "assets/mai-jump2.png";
+
+// たぬつなの画像を読み込み（完成しているもののみ）
+characterImages.tanutsuna.idle.src = "assets/tanutsuna.png";
+characterImages.tanutsuna.run1.src = "assets/tanutsuna-run1.png";
+characterImages.tanutsuna.run2.src = "assets/tanutsuna-run2.png";
+characterImages.tanutsuna.jump1.src = "assets/tanutsuna-jump1.png";
+characterImages.tanutsuna.jump2.src = "assets/tanutsuna-jump2.png";
+
+// 画像読み込みエラーハンドリング
+Object.values(characterImages).forEach(character => {
+  Object.values(character).forEach(img => {
+    if (img instanceof HTMLImageElement) {
+      img.onerror = function() {
+        console.warn('キャラクター画像読み込みエラー:', img.src);
+        // エラー時はラフトの画像にフォールバック
+        const fallbackImages = characterImages.raft;
+        if (img === character.idle) img.src = fallbackImages.idle.src;
+        else if (img === character.run1) img.src = fallbackImages.run1.src;
+        else if (img === character.run2) img.src = fallbackImages.run2.src;
+        else if (img === character.jump1) img.src = fallbackImages.jump1.src;
+        else if (img === character.jump2) img.src = fallbackImages.jump2.src;
+      };
+    }
+  });
+});
+
 // プレイヤー
 const player = {
   x: 100, y: 100, width: 28, height: 28,
@@ -83,19 +147,30 @@ class PlayerAnimator {
   constructor() {
     this.frame = 0;
     this.timer = 0;
-    this.runImages = [
-      document.getElementById("player"),
-      document.getElementById("player-run1"),
-      document.getElementById("player-run2"),
-    ];
-    this.jumpImages = [
-      document.getElementById("player-jump1"),
-      document.getElementById("player-jump2"),
-    ];
     this.justJumped = false;
     this.jumpFrameStart = 0;
     this.lastJumping = false;
+    this.currentCharacter = 'raft';
   }
+  
+  setCharacter(character) {
+    this.currentCharacter = character;
+  }
+  
+  getCharacterImages() {
+    const images = characterImages[this.currentCharacter] || characterImages.raft;
+    
+    // 画像の存在チェック（未完成の画像がある場合はラフトにフォールバック）
+    const fallbackImages = characterImages.raft;
+    return {
+      idle: images.idle.complete && images.idle.naturalWidth > 0 ? images.idle : fallbackImages.idle,
+      run1: images.run1.complete && images.run1.naturalWidth > 0 ? images.run1 : fallbackImages.run1,
+      run2: images.run2.complete && images.run2.naturalWidth > 0 ? images.run2 : fallbackImages.run2,
+      jump1: images.jump1.complete && images.jump1.naturalWidth > 0 ? images.jump1 : fallbackImages.jump1,
+      jump2: images.jump2.complete && images.jump2.naturalWidth > 0 ? images.jump2 : fallbackImages.jump2
+    };
+  }
+  
   update(moving, jumping) {
     const now = performance.now();
     if (moving && now - this.timer > 100) {
@@ -109,15 +184,19 @@ class PlayerAnimator {
     if (!jumping) this.justJumped = false;
     this.lastJumping = jumping;
   }
+  
   draw(ctx, x, y, width, height, moving, flip, jumping) {
+    const images = this.getCharacterImages();
     let img;
     const now = performance.now();
+    
     if (this.justJumped) {
       const elapsed = now - this.jumpFrameStart;
-      if (elapsed < 100) img = this.jumpImages[0];
-      else if (elapsed < 200) img = this.jumpImages[1];
+      if (elapsed < 100) img = images.jump1;
+      else if (elapsed < 200) img = images.jump2;
       else this.justJumped = false;
     }
+    
     if (!img) {
       if (jumping) {
         const centerX = x + width / 2;
@@ -125,13 +204,14 @@ class PlayerAnimator {
         const nearGround =
           getTile(centerX, bottomY + 1) !== 0 ||
           getTile(centerX, bottomY + 32) !== 0;
-        img = nearGround ? this.jumpImages[0] : this.jumpImages[1];
+        img = nearGround ? images.jump1 : images.jump2;
       } else if (moving) {
-        img = this.runImages[this.frame % this.runImages.length];
+        img = this.frame % 2 === 0 ? images.run1 : images.run2;
       } else {
-        img = this.runImages[0];
+        img = images.idle;
       }
     }
+    
     ctx.save();
     if (flip) {
       ctx.translate(x + width, y);
@@ -376,10 +456,27 @@ let targetScale = SCALE;
 // 設定の読み込み
 function loadGameSettings() {
   const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+  const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+  
   const defaults = {
     cameraSpeed: 0.1,
     zoom: 2.0,
-    difficulty: 'normal'
+    difficulty: 'normal',
+    character: 'raft'
+  };
+  
+  // デフォルトキー設定
+  const defaultKeys = {
+    left: 'a',
+    right: 'd',
+    jump: ' ',
+    up: 'w',
+    down: 's',
+    stop: 'Shift',
+    editorLeft: 'a',
+    editorRight: 'd',
+    editorUp: 'w',
+    editorDown: 's'
   };
   
   // カメラ追従速度
@@ -392,13 +489,31 @@ function loadGameSettings() {
   // 難易度設定
   window.gameDifficulty = settings.difficulty || defaults.difficulty;
   
-  console.log('設定読み込み完了:', { cameraSpeed: window.cameraSpeed, zoom: window.dynamicScale, difficulty: window.gameDifficulty });
+  // キャラクター設定
+  const selectedCharacter = settings.character || defaults.character;
+  if (animator) {
+    animator.setCharacter(selectedCharacter);
+  }
+  
+  // キー設定
+  window.gameKeys = {};
+  Object.keys(defaultKeys).forEach(key => {
+    window.gameKeys[key] = keySettings[key] || defaultKeys[key];
+  });
+  
+  console.log('設定読み込み完了:', { 
+    cameraSpeed: window.cameraSpeed, 
+    zoom: window.dynamicScale, 
+    difficulty: window.gameDifficulty,
+    character: selectedCharacter,
+    keys: window.gameKeys
+  });
 }
 loadGameSettings();
 
 // 設定変更時のリアルタイム反映
 window.addEventListener('storage', (e) => {
-  if (e.key === 'gameSettings') {
+  if (e.key === 'gameSettings' || e.key === 'keySettings') {
     console.log('設定が変更されました');
     loadGameSettings();
   }
@@ -408,13 +523,16 @@ window.addEventListener('storage', (e) => {
 function update() {
   player.vx = 0; isMoving = false;
   
-  // 左右移動（WASD + 十字キー）
-  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) { 
+  // キー設定を使用した左右移動
+  const leftKey = window.gameKeys?.left || 'a';
+  const rightKey = window.gameKeys?.right || 'd';
+  
+  if (keys[leftKey.toLowerCase()] || keys[leftKey.toUpperCase()] || keys["ArrowLeft"]) { 
     player.vx = -player.speed; 
     facingLeft = true; 
     isMoving = true; 
   }
-  if (keys["ArrowRight"] || keys["d"] || keys["D"]) { 
+  if (keys[rightKey.toLowerCase()] || keys[rightKey.toUpperCase()] || keys["ArrowRight"]) { 
     player.vx = player.speed; 
     facingLeft = false; 
     isMoving = true; 
@@ -442,11 +560,12 @@ function update() {
   
   player.vy += player.gravity;
   
-  // 梯子停止の処理（梯子を登っている＆シフトを押している場合）
+  // 梯子停止の処理（梯子を登っている＆停止キーを押している場合）
   const ladderFootX = player.x + player.width / 2;
   const ladderFootY = player.y + player.height + 1;
   const ladderTileBelow = getTile(ladderFootX, ladderFootY);
-  if (ladderTileBelow === 8 && (keys["Shift"] || keys["ShiftLeft"] || keys["ShiftRight"])) {
+  const stopKey = window.gameKeys?.stop || 'Shift';
+  if (ladderTileBelow === 8 && (keys[stopKey] || keys["ShiftLeft"] || keys["ShiftRight"])) {
     player.vy = 0; // 落下を停止
   }
   
@@ -731,12 +850,16 @@ function update() {
   
   // ハシゴの判定（当たり判定なしになったので特殊効果のみ）
   if (tileBelow === 8) {
-    // 梯子上昇・下降の処理
-    if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+    // キー設定を使用した梯子上昇・下降の処理
+    const upKey = window.gameKeys?.up || 'w';
+    const downKey = window.gameKeys?.down || 's';
+    const stopKey = window.gameKeys?.stop || 'Shift';
+    
+    if (keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()] || keys["ArrowUp"]) {
       player.vy = -2; // 上昇
-    } else if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+    } else if (keys[downKey.toLowerCase()] || keys[downKey.toUpperCase()] || keys["ArrowDown"]) {
       player.vy = 2; // 下降
-    } else if (keys["Shift"] || keys["ShiftLeft"] || keys["ShiftRight"]) {
+    } else if (keys[stopKey] || keys["ShiftLeft"] || keys["ShiftRight"]) {
       player.vy = 0; // シフトで落下停止
     } else {
       player.vy = 0; // 何も押していない時は停止
@@ -744,14 +867,16 @@ function update() {
     player.onGround = true;
   }
   
-  // ハシゴに登っている時はWと↑キーでのジャンプを無効にする
-  if (tileBelow === 8 && (keys["ArrowUp"] || keys["w"] || keys["W"])) {
-    // Wと↑キーでのジャンプ入力を無視（梯子上昇を優先）
+  // ハシゴに登っている時は上昇キーでのジャンプを無効にする
+  const upKey = window.gameKeys?.up || 'w';
+  if (tileBelow === 8 && (keys["ArrowUp"] || keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()])) {
+    // 上昇キーでのジャンプ入力を無視（梯子上昇を優先）
     // ジャンプ処理をスキップするため、ここでは何もしない
   }
   
-  // ジャンプ（スペースキー、またはハシゴ以外でW/↑キー）
-  if ((keys[" "] || ((keys["ArrowUp"] || keys["w"] || keys["W"]) && tileBelow !== 8)) && player.onGround) {
+  // ジャンプ（スペースキー、またはハシゴ以外で上昇キー）
+  const jumpKey = window.gameKeys?.jump || ' ';
+  if ((keys[jumpKey] || ((keys["ArrowUp"] || keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()]) && tileBelow !== 8)) && player.onGround) {
     player.vy = player.jumpPower;
     player.onGround = false;
   }

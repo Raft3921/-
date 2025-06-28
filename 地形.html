@@ -134,20 +134,45 @@
     // 設定の読み込み
     function loadEditorSettings() {
       const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+      const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+      
       const defaults = {
         showGrid: true,
         snapToGrid: true
       };
       
+      // デフォルトキー設定
+      const defaultKeys = {
+        editorLeft: 'a',
+        editorRight: 'd',
+        editorUp: 'w',
+        editorDown: 's'
+      };
+      
       window.showGrid = settings.showGrid !== undefined ? settings.showGrid : defaults.showGrid;
       window.snapToGrid = settings.snapToGrid !== undefined ? settings.snapToGrid : defaults.snapToGrid;
       
+      // エディターキー設定
+      window.editorKeys = {};
+      Object.keys(defaultKeys).forEach(key => {
+        window.editorKeys[key] = keySettings[key] || defaultKeys[key];
+      });
+      
       console.log('エディタ設定読み込み完了:', {
         showGrid: window.showGrid, 
-        snapToGrid: window.snapToGrid 
+        snapToGrid: window.snapToGrid,
+        keys: window.editorKeys
       });
     }
     loadEditorSettings();
+
+    // 設定変更時のリアルタイム反映
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'gameSettings' || e.key === 'keySettings') {
+        console.log('エディタ設定が変更されました');
+        loadEditorSettings();
+      }
+    });
 
     // images（0:消しゴム, 1:地面, 2:土, 3:敵, 4:ゴール, 5:石, 6:毒, 7:きのこ, 8:ハシゴ, 9:動く敵）
     const images = {
@@ -529,11 +554,16 @@ function showConfirm(text, onYes, onNo) {
 
     function update() {
       const camSpeed = 8;
-      // カメラ移動（WASD + 十字キー）
-      if (keys["a"] || keys["A"] || keys["ArrowLeft"]) camera.x -= camSpeed;
-      if (keys["d"] || keys["D"] || keys["ArrowRight"]) camera.x += camSpeed;
-      if (keys["w"] || keys["W"] || keys["ArrowUp"]) camera.y -= camSpeed;
-      if (keys["s"] || keys["S"] || keys["ArrowDown"]) camera.y += camSpeed;
+      // キー設定を使用したカメラ移動
+      const leftKey = window.editorKeys?.editorLeft || 'a';
+      const rightKey = window.editorKeys?.editorRight || 'd';
+      const upKey = window.editorKeys?.editorUp || 'w';
+      const downKey = window.editorKeys?.editorDown || 's';
+      
+      if (keys[leftKey.toLowerCase()] || keys[leftKey.toUpperCase()] || keys["ArrowLeft"]) camera.x -= camSpeed;
+      if (keys[rightKey.toLowerCase()] || keys[rightKey.toUpperCase()] || keys["ArrowRight"]) camera.x += camSpeed;
+      if (keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()] || keys["ArrowUp"]) camera.y -= camSpeed;
+      if (keys[downKey.toLowerCase()] || keys[downKey.toUpperCase()] || keys["ArrowDown"]) camera.y += camSpeed;
       camera.x = Math.max(0, Math.min(camera.x, cols * TILE_SIZE - canvas.width));
       camera.y = Math.max(0, Math.min(camera.y, rows * TILE_SIZE - canvas.height));
       

@@ -96,6 +96,70 @@
     button.secondary:hover {
       background: #5a6268;
     }
+    .key-button {
+      background: #f8f9fa;
+      border: 2px solid #ddd;
+      color: #1a2a4f;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      min-width: 60px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .key-button:hover {
+      background: #e9ecef;
+      border-color: #4466ff;
+    }
+    .key-button.setting {
+      background: #4466ff;
+      color: white;
+      border-color: #4466ff;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .character-option {
+      display: flex;
+      align-items: center;
+    }
+    .character-option input[type="radio"] {
+      display: none;
+    }
+    .character-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f8f9fa;
+      min-width: 100px;
+    }
+    .character-label:hover {
+      border-color: #4466ff;
+      background: #e9ecef;
+    }
+    .character-option input[type="radio"]:checked + .character-label {
+      border-color: #4466ff;
+      background: #4466ff;
+      color: white;
+      transform: scale(1.05);
+    }
+    .character-label img {
+      margin-bottom: 5px;
+      image-rendering: pixelated;
+    }
+    .character-label span {
+      font-size: 12px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -158,6 +222,64 @@
       </div>
     </div>
 
+    <!-- コントロール設定 -->
+    <div class="setting-section">
+      <h2>コントロール設定</h2>
+      <div class="setting-item">
+        <label>ゲーム操作キー</label>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div>
+            <label style="font-size: 12px; color: #666;">左移動</label>
+            <button class="key-button" id="leftKey" data-action="setKey" data-key="left">A</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">右移動</label>
+            <button class="key-button" id="rightKey" data-action="setKey" data-key="right">D</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">ジャンプ</label>
+            <button class="key-button" id="jumpKey" data-action="setKey" data-key="jump">Space</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">上昇</label>
+            <button class="key-button" id="upKey" data-action="setKey" data-key="up">W</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">下降</label>
+            <button class="key-button" id="downKey" data-action="setKey" data-key="down">S</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">停止</label>
+            <button class="key-button" id="stopKey" data-action="setKey" data-key="stop">Shift</button>
+          </div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <label>エディター操作キー</label>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ左</label>
+            <button class="key-button" id="editorLeftKey" data-action="setKey" data-key="editorLeft">A</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ右</label>
+            <button class="key-button" id="editorRightKey" data-action="setKey" data-key="editorRight">D</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ上</label>
+            <button class="key-button" id="editorUpKey" data-action="setKey" data-key="editorUp">W</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ下</label>
+            <button class="key-button" id="editorDownKey" data-action="setKey" data-key="editorDown">S</button>
+          </div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <button id="resetKeysBtn" class="secondary" style="font-size: 14px; padding: 8px 16px;">キー設定をリセット</button>
+      </div>
+    </div>
+
     <!-- エディタ設定 -->
     <div class="setting-section">
       <h2>エディタ設定</h2>
@@ -195,7 +317,8 @@
         bgmVolume: 30,
         difficulty: 'normal',
         showGrid: true,
-        snapToGrid: true
+        snapToGrid: true,
+        character: 'raft'
       };
 
       // 設定を適用
@@ -212,6 +335,117 @@
           }
         }
       });
+
+      // キー設定の読み込み
+      loadKeySettings();
+    }
+
+    // キー設定の読み込み
+    function loadKeySettings() {
+      const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+      
+      // デフォルトキー設定
+      const defaultKeys = {
+        left: 'a',
+        right: 'd',
+        jump: ' ',
+        up: 'w',
+        down: 's',
+        stop: 'Shift',
+        editorLeft: 'a',
+        editorRight: 'd',
+        editorUp: 'w',
+        editorDown: 's'
+      };
+
+      // キー設定を適用
+      Object.keys(defaultKeys).forEach(key => {
+        const button = document.getElementById(key + 'Key');
+        if (button) {
+          const savedKey = keySettings[key] || defaultKeys[key];
+          button.textContent = getKeyDisplayName(savedKey);
+          button.dataset.keyValue = savedKey;
+        }
+      });
+    }
+
+    // キーの表示名を取得
+    function getKeyDisplayName(key) {
+      const keyMap = {
+        ' ': 'Space',
+        'ArrowLeft': '←',
+        'ArrowRight': '→',
+        'ArrowUp': '↑',
+        'ArrowDown': '↓',
+        'Shift': 'Shift',
+        'Control': 'Ctrl',
+        'Alt': 'Alt',
+        'Tab': 'Tab',
+        'Enter': 'Enter',
+        'Escape': 'Esc'
+      };
+      return keyMap[key] || key.toUpperCase();
+    }
+
+    // キー設定モード
+    let isSettingKey = false;
+    let currentSettingButton = null;
+
+    // キー設定開始
+    function startKeySetting(button) {
+      if (isSettingKey) return;
+      
+      isSettingKey = true;
+      currentSettingButton = button;
+      
+      // 他のボタンの設定モードを解除
+      document.querySelectorAll('.key-button').forEach(btn => {
+        btn.classList.remove('setting');
+      });
+      
+      // 現在のボタンを設定モードに
+      button.classList.add('setting');
+      button.textContent = 'キーを押してください...';
+      
+      showMessage('キーを押してください');
+    }
+
+    // キー設定完了
+    function finishKeySetting(key) {
+      if (!isSettingKey || !currentSettingButton) return;
+      
+      isSettingKey = false;
+      currentSettingButton.classList.remove('setting');
+      currentSettingButton.textContent = getKeyDisplayName(key);
+      currentSettingButton.dataset.keyValue = key;
+      currentSettingButton = null;
+      
+      showMessage('キーを設定しました');
+    }
+
+    // キー設定の保存
+    function saveKeySettings() {
+      const keySettings = {};
+      const keyButtons = document.querySelectorAll('.key-button');
+      
+      keyButtons.forEach(button => {
+        const keyType = button.dataset.key;
+        const keyValue = button.dataset.keyValue;
+        if (keyType && keyValue) {
+          keySettings[keyType] = keyValue;
+        }
+      });
+      
+      localStorage.setItem('keySettings', JSON.stringify(keySettings));
+    }
+
+    // キー設定のリセット
+    function resetKeySettings() {
+      if (confirm('キー設定をデフォルトに戻しますか？')) {
+        localStorage.removeItem('keySettings');
+        loadKeySettings();
+        showMessage('キー設定をリセットしました！');
+      }
     }
 
     // 範囲スライダーの値表示更新
@@ -232,13 +466,19 @@
     // 設定の保存
     function saveSettings() {
       const settings = {};
-      const elements = ['fullscreen', 'resolution', 'cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume', 'difficulty', 'showGrid', 'snapToGrid'];
+      const elements = ['fullscreen', 'resolution', 'cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume', 'difficulty', 'showGrid', 'snapToGrid', 'character'];
       
       elements.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
           if (element.type === 'checkbox') {
             settings[id] = element.checked;
+          } else if (element.type === 'radio') {
+            // ラジオボタンの場合は選択された値を取得
+            const selectedRadio = document.querySelector(`input[name="${id}"]:checked`);
+            if (selectedRadio) {
+              settings[id] = selectedRadio.value;
+            }
           } else {
             settings[id] = element.value;
           }
@@ -246,6 +486,10 @@
       });
 
       localStorage.setItem('gameSettings', JSON.stringify(settings));
+      
+      // キー設定も保存
+      saveKeySettings();
+      
       showMessage('設定を保存しました！');
     }
 
@@ -274,6 +518,24 @@
       document.getElementById('saveBtn').onclick = saveSettings;
       document.getElementById('resetBtn').onclick = resetSettings;
       document.getElementById('backBtn').onclick = () => location.href = 'home.html';
+
+      // キー設定イベント
+      document.getElementById('resetKeysBtn').onclick = resetKeySettings;
+      
+      // キーボタンのクリックイベント
+      document.querySelectorAll('.key-button').forEach(button => {
+        button.addEventListener('click', () => {
+          startKeySetting(button);
+        });
+      });
+
+      // キーボードイベント
+      document.addEventListener('keydown', (e) => {
+        if (isSettingKey) {
+          e.preventDefault();
+          finishKeySetting(e.key);
+        }
+      });
     });
 
     // メッセージ表示関数
@@ -287,6 +549,80 @@
         }, 3000);
       }
     }
+
+    // キャラクターアニメーション機能
+    const characterAnimations = {
+      raft: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      },
+      mai: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      },
+      tanutsuna: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      }
+    };
+
+    // 画像読み込み
+    characterAnimations.raft.idle.src = "assets/player.png";
+    characterAnimations.raft.run1.src = "assets/player-run1.png";
+    characterAnimations.raft.run2.src = "assets/player-run2.png";
+
+    characterAnimations.mai.idle.src = "assets/mai.png";
+    characterAnimations.mai.run1.src = "assets/mai-run1.png";
+    characterAnimations.mai.run2.src = "assets/mai-run2.png";
+
+    characterAnimations.tanutsuna.idle.src = "assets/tanutsuna.png";
+    characterAnimations.tanutsuna.run1.src = "assets/tanutsuna-run1.png";
+    characterAnimations.tanutsuna.run2.src = "assets/tanutsuna-run2.png";
+
+    // アニメーション状態
+    let animationFrame = 0;
+    let animationTimer = 0;
+
+    // キャラクターアニメーション描画
+    function drawCharacterAnimation(canvasId, characterName) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const images = characterAnimations[characterName];
+      
+      if (!images) return;
+      
+      // キャンバスをクリア
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 走りアニメーション（2フレーム）
+      const frame = Math.floor(animationFrame / 10) % 2;
+      const img = frame === 0 ? images.run1 : images.run2;
+      
+      if (img.complete && img.naturalWidth > 0) {
+        // 64x64に拡大描画
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // アニメーション更新
+    function updateAnimations() {
+      animationFrame++;
+      
+      // 各キャラクターのアニメーションを描画
+      drawCharacterAnimation('raftCanvas', 'raft');
+      drawCharacterAnimation('maiCanvas', 'mai');
+      drawCharacterAnimation('tanutsunaCanvas', 'tanutsuna');
+      
+      requestAnimationFrame(updateAnimations);
+    }
+
+    // アニメーション開始
+    updateAnimations();
   </script>
 </body>
 </html> 

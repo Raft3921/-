@@ -273,6 +273,24 @@ function checkCollision(x, y, width, height) {
     for (let col = left; col <= right; col++) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
+        
+        // 毒タイルの場合は判定範囲を縮小
+        if (tile === 6) {
+          const tileX = col * TILE_SIZE;
+          const tileY = row * TILE_SIZE;
+          const poisonMargin = TILE_SIZE * 0.1; // 毒の判定を20%縮小（0.8倍）
+          const poisonLeft = tileX + poisonMargin;
+          const poisonRight = tileX + TILE_SIZE - poisonMargin;
+          const poisonTop = tileY + poisonMargin;
+          const poisonBottom = tileY + TILE_SIZE - poisonMargin;
+          
+          // プレイヤーが毒の縮小判定範囲内にあるかチェック
+          if (x < poisonRight && x + width > poisonLeft && y < poisonBottom && y + height > poisonTop) {
+            return true;
+          }
+          continue; // 毒タイルの場合は通常の判定をスキップ
+        }
+        
         // 当たり判定から除外するタイル:
         // 0: 空, 4: ゴール, 7: トランポリン, 8: ハシゴ, 10: スポーン地点, 12-14: レール, 15: コイン, 16: チェックポイント, 17: ゴールドゴール, 19: ダミーブロック
         // 3: 敵はブロックとしての当たり判定あり、特殊効果は別途処理
@@ -389,19 +407,24 @@ window.addEventListener('storage', (e) => {
 // メイン更新
 function update() {
   player.vx = 0; isMoving = false;
-  if (keys["ArrowLeft"]) { player.vx = -player.speed; facingLeft = true; isMoving = true; }
-  if (keys["ArrowRight"]) { player.vx = player.speed; facingLeft = false; isMoving = true; }
-  if (keys[" "] && player.onGround) {
-    player.vy = player.jumpPower;
-    player.onGround = false;
+  
+  // 左右移動（WASD + 十字キー）
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) { 
+    player.vx = -player.speed; 
+    facingLeft = true; 
+    isMoving = true; 
   }
-
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) { 
+    player.vx = player.speed; 
+    facingLeft = false; 
+    isMoving = true; 
+  }
+  
   // デバッグ用：キー入力と移動状態を確認
-  if (keys["ArrowLeft"] || keys["ArrowRight"] || keys[" "]) {
+  if (keys["ArrowLeft"] || keys["ArrowRight"]) {
     console.log("キー入力:", {
       left: keys["ArrowLeft"],
       right: keys["ArrowRight"],
-      space: keys[" "],
       vx: player.vx,
       vy: player.vy,
       onGround: player.onGround
@@ -418,6 +441,15 @@ function update() {
   }
   
   player.vy += player.gravity;
+  
+  // 梯子停止の処理（梯子を登っている＆シフトを押している場合）
+  const ladderFootX = player.x + player.width / 2;
+  const ladderFootY = player.y + player.height + 1;
+  const ladderTileBelow = getTile(ladderFootX, ladderFootY);
+  if (ladderTileBelow === 8 && (keys["Shift"] || keys["ShiftLeft"] || keys["ShiftRight"])) {
+    player.vy = 0; // 落下を停止
+  }
+  
   const nextY = player.y + player.vy;
   const collisionY = checkCollision(player.x, nextY, player.width, player.height);
   if (!collisionY) {
@@ -677,14 +709,14 @@ function update() {
     }
   }
   
-  // 毒の拡張判定（ブロックの当たり判定の0.1タイル分外側）
-  const poisonMargin = TILE_SIZE * 0.1; // 0.1タイル分のマージン
-  const poisonLeft = player.x - poisonMargin;
-  const poisonRight = player.x + player.width + poisonMargin;
-  const poisonTop = player.y - poisonMargin;
-  const poisonBottom = player.y + player.height + poisonMargin;
+  // 毒の判定（ブロックとしての判定と同じ大きさ）
+  const poisonMargin = TILE_SIZE * 0.05; // 毒の判定を10%縮小（0.9倍）
+  const poisonLeft = player.x + poisonMargin;
+  const poisonRight = player.x + player.width - poisonMargin;
+  const poisonTop = player.y + poisonMargin;
+  const poisonBottom = player.y + player.height - poisonMargin;
   
-  // 毒の拡張判定範囲をチェック
+  // 毒の判定範囲をチェック
   for (let row = Math.floor(poisonTop / TILE_SIZE); row <= Math.floor(poisonBottom / TILE_SIZE); row++) {
     for (let col = Math.floor(poisonLeft / TILE_SIZE); col <= Math.floor(poisonRight / TILE_SIZE); col++) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
@@ -699,10 +731,29 @@ function update() {
   
   // ハシゴの判定（当たり判定なしになったので特殊効果のみ）
   if (tileBelow === 8) {
-    if (keys["w"]) player.vy = -2;
-    else if (keys["s"]) player.vy = 2;
-    else player.vy = 0;
+    // 梯子上昇・下降の処理
+    if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+      player.vy = -2; // 上昇
+    } else if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+      player.vy = 2; // 下降
+    } else if (keys["Shift"] || keys["ShiftLeft"] || keys["ShiftRight"]) {
+      player.vy = 0; // シフトで落下停止
+    } else {
+      player.vy = 0; // 何も押していない時は停止
+    }
     player.onGround = true;
+  }
+  
+  // ハシゴに登っている時はWと↑キーでのジャンプを無効にする
+  if (tileBelow === 8 && (keys["ArrowUp"] || keys["w"] || keys["W"])) {
+    // Wと↑キーでのジャンプ入力を無視（梯子上昇を優先）
+    // ジャンプ処理をスキップするため、ここでは何もしない
+  }
+  
+  // ジャンプ（スペースキー、またはハシゴ以外でW/↑キー）
+  if ((keys[" "] || ((keys["ArrowUp"] || keys["w"] || keys["W"]) && tileBelow !== 8)) && player.onGround) {
+    player.vy = player.jumpPower;
+    player.onGround = false;
   }
   
   // 胴体判定（プレイヤーの中心部分）

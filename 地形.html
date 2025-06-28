@@ -62,9 +62,9 @@
     #homeButton { left: 10px; }
     #clearButton { left: 140px; }
     #undoButton { left: 270px; }
-    #redoButton { left: 400px; }
-    #exportButton { left: 530px; }
-    #importButton { left: 660px; }
+    #redoButton { left: 340px; }
+    #exportButton { left: 470px; }
+    #importButton { left: 540px; }
     
     #fileInput {
       display: none;
@@ -142,7 +142,10 @@
       window.showGrid = settings.showGrid !== undefined ? settings.showGrid : defaults.showGrid;
       window.snapToGrid = settings.snapToGrid !== undefined ? settings.snapToGrid : defaults.snapToGrid;
       
-      console.log('エディタ設定読み込み完了:', { showGrid: window.showGrid, snapToGrid: window.snapToGrid });
+      console.log('エディタ設定読み込み完了:', {
+        showGrid: window.showGrid, 
+        snapToGrid: window.snapToGrid 
+      });
     }
     loadEditorSettings();
 
@@ -189,6 +192,12 @@
     images[17].src = "assets/goldgoal.png";
     images[19].src = "assets/dummy.png"; // ダミーブロック
     
+    // 画像読み込みエラーハンドリング
+    Object.values(images).forEach(img => {
+      img.onerror = function() {
+        console.warn('画像読み込みエラー:', img.src);
+      };
+    });
 
     // スロットバー生成
     const slotBar = document.getElementById("slotBar");

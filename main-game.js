@@ -274,9 +274,9 @@ function checkCollision(x, y, width, height) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
         // 当たり判定から除外するタイル:
-        // 0: 空, 4: ゴール, 8: ハシゴ, 10: スポーン地点, 12-14: レール, 15: コイン, 16: チェックポイント, 17: ゴールドゴール, 19: ダミーブロック
+        // 0: 空, 4: ゴール, 7: トランポリン, 8: ハシゴ, 10: スポーン地点, 12-14: レール, 15: コイン, 16: チェックポイント, 17: ゴールドゴール, 19: ダミーブロック
         // 3: 敵はブロックとしての当たり判定あり、特殊効果は別途処理
-        if (tile !== 0 && tile !== 4 && tile !== 8 && tile !== 10 && 
+        if (tile !== 0 && tile !== 4 && tile !== 7 && tile !== 8 && tile !== 10 && 
             tile !== 12 && tile !== 13 && tile !== 14 && 
             tile !== 15 && tile !== 16 && tile !== 17 && tile !== 19) {
           // デバッグ用：衝突したタイルを確認
@@ -574,8 +574,10 @@ function update() {
   }
 
   // --- falling breakable blocks update ---
+  console.log("落下ブロックの数:", window.fallingBreaks.length);
   for (let i = window.fallingBreaks.length - 1; i >= 0; i--) {
     const fb = window.fallingBreaks[i];
+    console.log("落下ブロック処理中:", i, fb.row, fb.col, fb.y, fb.fading);
     fb.vy += 0.5; // gravity
     fb.y += fb.vy;
     const nextRow = Math.floor((fb.y + TILE_SIZE) / TILE_SIZE);
@@ -606,34 +608,43 @@ function update() {
     }
     
     if (nextRow >= map.length || (nextRow >= 0 && map[nextRow][fb.col] !== 0)) {
-      if (nextRow >= map.length) {
+      // 地面に着いたらフェードアウト開始（一度だけ）
+      if (!fb.fading) {
+        console.log("地面に着地、フェードアウト開始:", fb.row, fb.col, "nextRow:", nextRow, "map[nextRow][fb.col]:", map[nextRow] ? map[nextRow][fb.col] : "undefined");
         fb.fading = true;
         fb.alpha = 1.0;
         fb.fadeTimer = 0;
-      } else {
-        map[Math.floor(fb.y / TILE_SIZE)][fb.col] = 11;
-        window.fallingBreaks.splice(i, 1);
-        continue;
       }
     }
     if (fb.fading) {
+      console.log("フェードアウト処理開始:", fb.row, fb.col, "現在のfadeTimer:", fb.fadeTimer, "現在のalpha:", fb.alpha);
       fb.fadeTimer += 1;
-      fb.alpha -= 0.03;
-      if (fb.alpha <= 0) {
+      fb.alpha -= 0.1; // 0.03 → 0.1 に変更してフェードアウトを速くする
+      console.log("フェードアウト中:", fb.row, fb.col, "alpha:", fb.alpha, "fadeTimer:", fb.fadeTimer);
+      
+      // フェードアウト完了条件を複数設定
+      if (fb.alpha <= 0 || fb.fadeTimer >= 3) { // タイマーを3フレームに短縮
+        console.log("フェードアウト完了条件達成:", fb.row, fb.col, "alpha:", fb.alpha, "fadeTimer:", fb.fadeTimer);
         // 復活待ちリストに追加
-        window.breakRespawns.push({row: fb.row, col: fb.col, timer: 180}); // 3秒(60fps)
+        window.breakRespawns.push({row: fb.row, col: fb.col, timer: 300}); // 5秒(60fps)
+        console.log("復活待ちリストに追加:", fb.row, fb.col, "現在の復活待ち数:", window.breakRespawns.length);
         window.fallingBreaks.splice(i, 1);
         continue;
       }
     }
   }
   // --- breakable block respawn ---
+  console.log("復活待ちリストの数:", window.breakRespawns.length);
   for (let i = window.breakRespawns.length - 1; i >= 0; i--) {
     const br = window.breakRespawns[i];
+    console.log("復活処理中:", i, br.row, br.col, br.timer);
     br.timer--;
     if (br.timer <= 0) {
       map[br.row][br.col] = 11;
+      console.log("ブロック復活完了:", br.row, br.col, "マップ値:", map[br.row][br.col]);
       window.breakRespawns.splice(i, 1);
+    } else {
+      console.log("復活タイマー:", br.row, br.col, "残り", br.timer);
     }
   }
 

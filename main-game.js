@@ -199,7 +199,7 @@ function updateEnemies() {
     if (enemyRow >= 0 && enemyRow < map.length && enemyCol >= 0 && enemyCol < map[0].length) {
       const tileBelow = map[enemyRow][enemyCol];
       // 地面として機能するタイル
-      if (tileBelow === 1 || tileBelow === 2 || tileBelow === 5 || tileBelow === 11) {
+      if (tileBelow === 1 || tileBelow === 2 || tileBelow === 5 || tileBelow === 11 || tileBelow === 3 || tileBelow === 6) {
         onGround = true;
       }
     }
@@ -223,7 +223,7 @@ function updateEnemies() {
     // より自然な折返し判定
     if (
       tileBelowAhead === 0 || // 足元が空
-      tileAhead === 1 || tileAhead === 2 || tileAhead === 5 || // 正面にブロック
+      tileAhead === 1 || tileAhead === 2 || tileAhead === 5 || tileAhead === 3 || tileAhead === 6 || // 正面にブロック
       enemy.x <= 0 || enemy.x + TILE_SIZE >= map[0].length * TILE_SIZE // マップ端
     ) {
       enemy.dir *= -1;

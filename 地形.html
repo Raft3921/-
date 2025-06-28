@@ -352,27 +352,36 @@ function showConfirm(text, onYes, onNo) {
 
     // タッチイベント対応
     let isTouchDown = false;
+    let lastPlacedTile = { row: -1, col: -1 }; // 最後に配置したタイルの位置
+    let lastTouchTime = 0; // 最後のタッチ処理時間
+    const touchThrottle = 16; // 約60fps（16ms間隔）
+    
     canvas.addEventListener("touchstart", e => {
       e.preventDefault(); // デフォルトのスクロールを防ぐ
       isTouchDown = true;
       hasSavedState = false; // タッチ開始時にリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチ開始時にリセット
     });
     canvas.addEventListener("touchend", e => {
       e.preventDefault();
       isTouchDown = false;
       hasSavedState = false; // タッチ終了時にリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチ終了時にリセット
     });
     canvas.addEventListener("touchcancel", e => {
       e.preventDefault();
       isTouchDown = false;
       hasSavedState = false; // タッチキャンセル時もリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチキャンセル時もリセット
     });
 
     canvas.addEventListener("touchmove", e => {
       e.preventDefault(); // デフォルトのスクロールを防ぐ
-      if (isTouchDown && e.touches.length > 0) {
+      const now = performance.now();
+      if (isTouchDown && e.touches.length > 0 && now - lastTouchTime > touchThrottle) {
         const touch = e.touches[0];
         placeTileTouch(touch);
+        lastTouchTime = now;
       }
     });
 
@@ -441,7 +450,16 @@ function showConfirm(text, onYes, onNo) {
       const my = touch.clientY - rect.top + camera.y;
       const col = Math.floor(mx / TILE_SIZE);
       const row = Math.floor(my / TILE_SIZE);
+      
+      // 同じタイルに重複配置しないようにチェック
+      if (col === lastPlacedTile.col && row === lastPlacedTile.row) {
+        return;
+      }
+      
       if (col >= 0 && col < cols && row >= 0 && row < rows) {
+        // 最後に配置したタイルの位置を記録
+        lastPlacedTile = { row, col };
+        
         // タッチ中の最初の1回だけ状態を保存
         if (!hasSavedState) {
           saveMapState();

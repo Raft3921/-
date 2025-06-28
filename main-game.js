@@ -14,11 +14,11 @@ function loadMapFromStorage() {
   const savedMap = localStorage.getItem("world_" + slotName);
   if (savedMap) {
     try {
-      const parsed = JSON.parse(savedMap);
-      if (Array.isArray(parsed)) {
+    const parsed = JSON.parse(savedMap);
+    if (Array.isArray(parsed)) {
         // 古い形式（配列のみ）
-        map.length = 0;
-        map.push(...parsed);
+      map.length = 0;
+      map.push(...parsed);
         window.dummyOverlays = {};
         return true;
       } else if (parsed.map && Array.isArray(parsed.map)) {
@@ -26,7 +26,7 @@ function loadMapFromStorage() {
         map.length = 0;
         map.push(...parsed.map);
         window.dummyOverlays = parsed.dummyOverlays || {};
-        return true;
+      return true;
       }
     } catch (e) {
       console.error("マップ読み込みエラー:", e);
@@ -354,21 +354,9 @@ function checkCollision(x, y, width, height) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
         
-        // 毒タイルの場合は判定範囲を縮小
+        // 毒タイルの場合は当たり判定なし（完全にすり抜け可能）
         if (tile === 6) {
-          const tileX = col * TILE_SIZE;
-          const tileY = row * TILE_SIZE;
-          const poisonMargin = TILE_SIZE * 0.25; // 毒の判定を25%縮小（0.5倍）
-          const poisonLeft = tileX + poisonMargin;
-          const poisonRight = tileX + TILE_SIZE - poisonMargin;
-          const poisonTop = tileY + poisonMargin;
-          const poisonBottom = tileY + TILE_SIZE - poisonMargin;
-          
-          // プレイヤーが毒の縮小判定範囲内にあるかチェック
-          if (x < poisonRight && x + width > poisonLeft && y < poisonBottom && y + height > poisonTop) {
-            return true;
-          }
-          continue; // 毒タイルの場合は通常の判定をスキップ
+          continue; // 毒タイルの場合は判定をスキップ
         }
         
         // 当たり判定から除外するタイル:
@@ -707,8 +695,8 @@ function update() {
       if (map[row][col] === 11) {
         const key = row + "," + col;
         if (window.breakTimers[key]) {
-          const elapsed = performance.now() - window.breakTimers[key];
-          if (elapsed > 500) {
+      const elapsed = performance.now() - window.breakTimers[key];
+      if (elapsed > 500) {
             // 落下開始: fallingBreaksに追加
             window.fallingBreaks.push({
               row: row,
@@ -717,7 +705,7 @@ function update() {
               vy: 0
             });
             map[row][col] = 0;
-            delete window.breakTimers[key];
+        delete window.breakTimers[key];
           }
         }
       }
@@ -794,7 +782,7 @@ function update() {
       map[br.row][br.col] = 11;
       console.log("ブロック復活完了:", br.row, br.col, "マップ値:", map[br.row][br.col]);
       window.breakRespawns.splice(i, 1);
-    } else {
+  } else {
       console.log("復活タイマー:", br.row, br.col, "残り", br.timer);
     }
   }

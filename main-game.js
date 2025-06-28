@@ -828,25 +828,13 @@ function update() {
     }
   }
   
-  // 毒の判定（死亡判定とブロック当たり判定を分離）
-  // 死亡判定（0.6倍の範囲）
-  const poisonDeathMargin = TILE_SIZE * 0.2; // 毒の死亡判定を20%縮小（0.6倍）
-  const poisonDeathLeft = player.x + poisonDeathMargin;
-  const poisonDeathRight = player.x + player.width - poisonDeathMargin;
-  const poisonDeathTop = player.y + poisonDeathMargin;
-  const poisonDeathBottom = player.y + player.height - poisonDeathMargin;
-  
-  // 毒の死亡判定範囲をチェック
-  for (let row = Math.floor(poisonDeathTop / TILE_SIZE); row <= Math.floor(poisonDeathBottom / TILE_SIZE); row++) {
-    for (let col = Math.floor(poisonDeathLeft / TILE_SIZE); col <= Math.floor(poisonDeathRight / TILE_SIZE); col++) {
-      if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
-        const tile = map[row][col];
-        if (tile === 6 && !isDead) {
-          diePlayer("poison");
-          return;
-        }
-      }
-    }
+  // プレイヤー中心座標
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const tileAtCenter = getTile(centerX, centerY);
+  if (tileAtCenter === 6 && !isDead) {
+    diePlayer("poison");
+    return;
   }
   
   // ハシゴの判定（当たり判定なしになったので特殊効果のみ）

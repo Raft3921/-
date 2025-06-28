@@ -358,7 +358,7 @@ function checkCollision(x, y, width, height) {
         if (tile === 6) {
           const tileX = col * TILE_SIZE;
           const tileY = row * TILE_SIZE;
-          const poisonMargin = TILE_SIZE * 0.1; // 毒の判定を20%縮小（0.8倍）
+          const poisonMargin = TILE_SIZE * 0.25; // 毒の判定を25%縮小（0.5倍）
           const poisonLeft = tileX + poisonMargin;
           const poisonRight = tileX + TILE_SIZE - poisonMargin;
           const poisonTop = tileY + poisonMargin;
@@ -828,16 +828,17 @@ function update() {
     }
   }
   
-  // 毒の判定（ブロックとしての判定と同じ大きさ）
-  const poisonMargin = TILE_SIZE * 0.05; // 毒の判定を10%縮小（0.9倍）
-  const poisonLeft = player.x + poisonMargin;
-  const poisonRight = player.x + player.width - poisonMargin;
-  const poisonTop = player.y + poisonMargin;
-  const poisonBottom = player.y + player.height - poisonMargin;
+  // 毒の判定（死亡判定とブロック当たり判定を分離）
+  // 死亡判定（0.6倍の範囲）
+  const poisonDeathMargin = TILE_SIZE * 0.2; // 毒の死亡判定を20%縮小（0.6倍）
+  const poisonDeathLeft = player.x + poisonDeathMargin;
+  const poisonDeathRight = player.x + player.width - poisonDeathMargin;
+  const poisonDeathTop = player.y + poisonDeathMargin;
+  const poisonDeathBottom = player.y + player.height - poisonDeathMargin;
   
-  // 毒の判定範囲をチェック
-  for (let row = Math.floor(poisonTop / TILE_SIZE); row <= Math.floor(poisonBottom / TILE_SIZE); row++) {
-    for (let col = Math.floor(poisonLeft / TILE_SIZE); col <= Math.floor(poisonRight / TILE_SIZE); col++) {
+  // 毒の死亡判定範囲をチェック
+  for (let row = Math.floor(poisonDeathTop / TILE_SIZE); row <= Math.floor(poisonDeathBottom / TILE_SIZE); row++) {
+    for (let col = Math.floor(poisonDeathLeft / TILE_SIZE); col <= Math.floor(poisonDeathRight / TILE_SIZE); col++) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
         if (tile === 6 && !isDead) {
@@ -849,13 +850,17 @@ function update() {
   }
   
   // ハシゴの判定（当たり判定なしになったので特殊効果のみ）
-  if (tileBelow === 8) {
+  const bodyX = player.x + player.width / 2;
+  const bodyY = player.y + player.height / 2;
+  const tileAtBody = getTile(bodyX, bodyY);
+  
+  if (tileAtBody === 8) {
     // キー設定を使用した梯子上昇・下降の処理
-    const upKey = window.gameKeys?.up || 'w';
+    const ladderUpKey = window.gameKeys?.ladderUp || 'w';
     const downKey = window.gameKeys?.down || 's';
     const stopKey = window.gameKeys?.stop || 'Shift';
     
-    if (keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()] || keys["ArrowUp"]) {
+    if (keys[ladderUpKey.toLowerCase()] || keys[ladderUpKey.toUpperCase()] || keys["ArrowUp"]) {
       player.vy = -2; // 上昇
     } else if (keys[downKey.toLowerCase()] || keys[downKey.toUpperCase()] || keys["ArrowDown"]) {
       player.vy = 2; // 下降
@@ -867,25 +872,31 @@ function update() {
     player.onGround = true;
   }
   
-  // ハシゴに登っている時は上昇キーでのジャンプを無効にする
-  const upKey = window.gameKeys?.up || 'w';
-  if (tileBelow === 8 && (keys["ArrowUp"] || keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()])) {
-    // 上昇キーでのジャンプ入力を無視（梯子上昇を優先）
+  // ハシゴに登っている時はハシゴ上昇キーでのジャンプを無効にする
+  const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+  if (tileAtBody === 8 && (keys["ArrowUp"] || keys[ladderUpKey.toLowerCase()] || keys[ladderUpKey.toUpperCase()])) {
+    // ハシゴ上昇キーでのジャンプ入力を無視（梯子上昇を優先）
     // ジャンプ処理をスキップするため、ここでは何もしない
   }
   
-  // ジャンプ（スペースキー、またはハシゴ以外で上昇キー）
+  // ジャンプ（スペースキーのみ）
   const jumpKey = window.gameKeys?.jump || ' ';
-  if ((keys[jumpKey] || ((keys["ArrowUp"] || keys[upKey.toLowerCase()] || keys[upKey.toUpperCase()]) && tileBelow !== 8)) && player.onGround) {
-    player.vy = player.jumpPower;
-    player.onGround = false;
+  
+  // ジャンプキーが↑に設定されている場合は↑キーのみでジャンプ
+  if (jumpKey === 'ArrowUp') {
+    if (keys[jumpKey] && player.onGround && tileAtBody !== 8) {
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
+  } else {
+    // 通常のジャンプ処理（スペースキーのみ）
+    if (keys[jumpKey] && player.onGround && tileAtBody !== 8) {
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
   }
   
   // 胴体判定（プレイヤーの中心部分）
-  const bodyX = player.x + player.width / 2;
-  const bodyY = player.y + player.height / 2;
-  const tileAtBody = getTile(bodyX, bodyY);
-  
   if (tileAtBody === 15) {
     scoa += 100;
     const col = Math.floor(bodyX / TILE_SIZE);

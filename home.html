@@ -9,6 +9,35 @@
   
   <div id="container">
     <h1>ラフトの冒険</h1>
+    
+    <!-- キャラクター選択 -->
+    <div id="characterSelect" style="margin-bottom: 20px;">
+      <h3 style="color: #1a2a4f; margin-bottom: 10px;">キャラクター選択</h3>
+      <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+        <div class="char-option">
+          <input type="radio" id="homeCharRaft" name="homeCharacter" value="raft" checked>
+          <label for="homeCharRaft" class="char-label">
+            <canvas id="homeRaftCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>ラフト</span>
+          </label>
+        </div>
+        <div class="char-option">
+          <input type="radio" id="homeCharMai" name="homeCharacter" value="mai">
+          <label for="homeCharMai" class="char-label">
+            <canvas id="homeMaiCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>まい</span>
+          </label>
+        </div>
+        <div class="char-option">
+          <input type="radio" id="homeCharTanutsuna" name="homeCharacter" value="tanutsuna">
+          <label for="homeCharTanutsuna" class="char-label">
+            <canvas id="homeTanutsunaCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>たぬつな</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
     <button id="createWorld">新しいワールド</button>
     <button id="settingsBtn">設定</button>
     <div id="slotsContainer">

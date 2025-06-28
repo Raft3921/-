@@ -70,6 +70,70 @@ window.canvas = canvas;
 window.ctx = ctx;
 window.slotName = slotName;
 
+// 画像読み込み
+const playerImg = document.getElementById("player");
+const playerRun1Img = document.getElementById("player-run1");
+const playerRun2Img = document.getElementById("player-run2");
+const playerJump1Img = document.getElementById("player-jump1");
+const playerJump2Img = document.getElementById("player-jump2");
+
+// キャラクター画像の定義
+const characterImages = {
+  raft: {
+    idle: playerImg,
+    run1: playerRun1Img,
+    run2: playerRun2Img,
+    jump1: playerJump1Img,
+    jump2: playerJump2Img
+  },
+  mai: {
+    idle: new Image(),
+    run1: new Image(),
+    run2: new Image(),
+    jump1: new Image(),
+    jump2: new Image()
+  },
+  tanutsuna: {
+    idle: new Image(),
+    run1: new Image(),
+    run2: new Image(),
+    jump1: new Image(),
+    jump2: new Image()
+  }
+};
+
+// まいの画像を読み込み
+characterImages.mai.idle.src = "assets/mai.png";
+characterImages.mai.run1.src = "assets/mai-run1.png";
+characterImages.mai.run2.src = "assets/mai-run2.png";
+characterImages.mai.jump1.src = "assets/mai-jump1.png";
+characterImages.mai.jump2.src = "assets/mai-jump2.png";
+
+// たぬつなの画像を読み込み（完成しているもののみ）
+characterImages.tanutsuna.idle.src = "assets/tanutsuna.png";
+characterImages.tanutsuna.run1.src = "assets/tanutsuna-run1.png";
+characterImages.tanutsuna.run2.src = "assets/tanutsuna-run2.png";
+characterImages.tanutsuna.jump1.src = "assets/tanutsuna-jump1.png";
+characterImages.tanutsuna.jump2.src = "assets/tanutsuna-jump2.png";
+
+// 画像読み込みエラーハンドリング
+Object.values(characterImages).forEach(character => {
+  Object.values(character).forEach(img => {
+    if (img instanceof HTMLImageElement) {
+      img.onerror = function() {
+        console.warn('キャラクター画像読み込みエラー:', img.src);
+        // エラー時はラフトの画像にフォールバック
+        const fallbackImages = characterImages.raft;
+        if (img === character.idle) img.src = fallbackImages.idle.src;
+        else if (img === character.run1) img.src = fallbackImages.run1.src;
+        else if (img === character.run2) img.src = fallbackImages.run2.src;
+        else if (img === character.jump1) img.src = fallbackImages.jump1.src;
+        else if (img === character.jump2) img.src = fallbackImages.jump2.src;
+      };
+    }
+  });
+});
+
 // プレイヤー
 const player = {
   x: 100, y: 100, width: 28, height: 28,
@@ -83,19 +147,30 @@ class PlayerAnimator {
   constructor() {
     this.frame = 0;
     this.timer = 0;
-    this.runImages = [
-      document.getElementById("player"),
-      document.getElementById("player-run1"),
-      document.getElementById("player-run2"),
-    ];
-    this.jumpImages = [
-      document.getElementById("player-jump1"),
-      document.getElementById("player-jump2"),
-    ];
     this.justJumped = false;
     this.jumpFrameStart = 0;
     this.lastJumping = false;
+    this.currentCharacter = 'raft';
   }
+  
+  setCharacter(character) {
+    this.currentCharacter = character;
+  }
+  
+  getCharacterImages() {
+    const images = characterImages[this.currentCharacter] || characterImages.raft;
+    
+    // 画像の存在チェック（未完成の画像がある場合はラフトにフォールバック）
+    const fallbackImages = characterImages.raft;
+    return {
+      idle: images.idle.complete && images.idle.naturalWidth > 0 ? images.idle : fallbackImages.idle,
+      run1: images.run1.complete && images.run1.naturalWidth > 0 ? images.run1 : fallbackImages.run1,
+      run2: images.run2.complete && images.run2.naturalWidth > 0 ? images.run2 : fallbackImages.run2,
+      jump1: images.jump1.complete && images.jump1.naturalWidth > 0 ? images.jump1 : fallbackImages.jump1,
+      jump2: images.jump2.complete && images.jump2.naturalWidth > 0 ? images.jump2 : fallbackImages.jump2
+    };
+  }
+  
   update(moving, jumping) {
     const now = performance.now();
     if (moving && now - this.timer > 100) {
@@ -109,15 +184,19 @@ class PlayerAnimator {
     if (!jumping) this.justJumped = false;
     this.lastJumping = jumping;
   }
+  
   draw(ctx, x, y, width, height, moving, flip, jumping) {
+    const images = this.getCharacterImages();
     let img;
     const now = performance.now();
+    
     if (this.justJumped) {
       const elapsed = now - this.jumpFrameStart;
-      if (elapsed < 100) img = this.jumpImages[0];
-      else if (elapsed < 200) img = this.jumpImages[1];
+      if (elapsed < 100) img = images.jump1;
+      else if (elapsed < 200) img = images.jump2;
       else this.justJumped = false;
     }
+    
     if (!img) {
       if (jumping) {
         const centerX = x + width / 2;
@@ -125,13 +204,14 @@ class PlayerAnimator {
         const nearGround =
           getTile(centerX, bottomY + 1) !== 0 ||
           getTile(centerX, bottomY + 32) !== 0;
-        img = nearGround ? this.jumpImages[0] : this.jumpImages[1];
+        img = nearGround ? images.jump1 : images.jump2;
       } else if (moving) {
-        img = this.runImages[this.frame % this.runImages.length];
+        img = this.frame % 2 === 0 ? images.run1 : images.run2;
       } else {
-        img = this.runImages[0];
+        img = images.idle;
       }
     }
+    
     ctx.save();
     if (flip) {
       ctx.translate(x + width, y);
@@ -199,7 +279,7 @@ function updateEnemies() {
     if (enemyRow >= 0 && enemyRow < map.length && enemyCol >= 0 && enemyCol < map[0].length) {
       const tileBelow = map[enemyRow][enemyCol];
       // 地面として機能するタイル
-      if (tileBelow === 1 || tileBelow === 2 || tileBelow === 5 || tileBelow === 11) {
+      if (tileBelow === 1 || tileBelow === 2 || tileBelow === 5 || tileBelow === 11 || tileBelow === 3 || tileBelow === 6) {
         onGround = true;
       }
     }
@@ -223,7 +303,7 @@ function updateEnemies() {
     // より自然な折返し判定
     if (
       tileBelowAhead === 0 || // 足元が空
-      tileAhead === 1 || tileAhead === 2 || tileAhead === 5 || // 正面にブロック
+      tileAhead === 1 || tileAhead === 2 || tileAhead === 5 || tileAhead === 3 || tileAhead === 6 || // 正面にブロック
       enemy.x <= 0 || enemy.x + TILE_SIZE >= map[0].length * TILE_SIZE // マップ端
     ) {
       enemy.dir *= -1;
@@ -273,6 +353,24 @@ function checkCollision(x, y, width, height) {
     for (let col = left; col <= right; col++) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
+        
+        // 毒タイルの場合は判定範囲を縮小
+        if (tile === 6) {
+          const tileX = col * TILE_SIZE;
+          const tileY = row * TILE_SIZE;
+          const poisonMargin = TILE_SIZE * 0.25; // 毒の判定を25%縮小（0.5倍）
+          const poisonLeft = tileX + poisonMargin;
+          const poisonRight = tileX + TILE_SIZE - poisonMargin;
+          const poisonTop = tileY + poisonMargin;
+          const poisonBottom = tileY + TILE_SIZE - poisonMargin;
+          
+          // プレイヤーが毒の縮小判定範囲内にあるかチェック
+          if (x < poisonRight && x + width > poisonLeft && y < poisonBottom && y + height > poisonTop) {
+            return true;
+          }
+          continue; // 毒タイルの場合は通常の判定をスキップ
+        }
+        
         // 当たり判定から除外するタイル:
         // 0: 空, 4: ゴール, 7: トランポリン, 8: ハシゴ, 10: スポーン地点, 12-14: レール, 15: コイン, 16: チェックポイント, 17: ゴールドゴール, 19: ダミーブロック
         // 3: 敵はブロックとしての当たり判定あり、特殊効果は別途処理
@@ -358,10 +456,27 @@ let targetScale = SCALE;
 // 設定の読み込み
 function loadGameSettings() {
   const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+  const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+  
   const defaults = {
     cameraSpeed: 0.1,
     zoom: 2.0,
-    difficulty: 'normal'
+    difficulty: 'normal',
+    character: 'raft'
+  };
+  
+  // デフォルトキー設定
+  const defaultKeys = {
+    left: 'a',
+    right: 'd',
+    jump: ' ',
+    up: 'w',
+    down: 's',
+    stop: 'Shift',
+    editorLeft: 'a',
+    editorRight: 'd',
+    editorUp: 'w',
+    editorDown: 's'
   };
   
   // カメラ追従速度
@@ -374,13 +489,31 @@ function loadGameSettings() {
   // 難易度設定
   window.gameDifficulty = settings.difficulty || defaults.difficulty;
   
-  console.log('設定読み込み完了:', { cameraSpeed: window.cameraSpeed, zoom: window.dynamicScale, difficulty: window.gameDifficulty });
+  // キャラクター設定
+  const selectedCharacter = settings.character || defaults.character;
+  if (animator) {
+    animator.setCharacter(selectedCharacter);
+  }
+  
+  // キー設定
+  window.gameKeys = {};
+  Object.keys(defaultKeys).forEach(key => {
+    window.gameKeys[key] = keySettings[key] || defaultKeys[key];
+  });
+  
+  console.log('設定読み込み完了:', { 
+    cameraSpeed: window.cameraSpeed, 
+    zoom: window.dynamicScale, 
+    difficulty: window.gameDifficulty,
+    character: selectedCharacter,
+    keys: window.gameKeys
+  });
 }
 loadGameSettings();
 
 // 設定変更時のリアルタイム反映
 window.addEventListener('storage', (e) => {
-  if (e.key === 'gameSettings') {
+  if (e.key === 'gameSettings' || e.key === 'keySettings') {
     console.log('設定が変更されました');
     loadGameSettings();
   }
@@ -389,19 +522,27 @@ window.addEventListener('storage', (e) => {
 // メイン更新
 function update() {
   player.vx = 0; isMoving = false;
-  if (keys["ArrowLeft"]) { player.vx = -player.speed; facingLeft = true; isMoving = true; }
-  if (keys["ArrowRight"]) { player.vx = player.speed; facingLeft = false; isMoving = true; }
-  if (keys[" "] && player.onGround) {
-    player.vy = player.jumpPower;
-    player.onGround = false;
+  
+  // キー設定を使用した左右移動
+  const leftKey = window.gameKeys?.left || 'a';
+  const rightKey = window.gameKeys?.right || 'd';
+  
+  if (keys[leftKey.toLowerCase()] || keys[leftKey.toUpperCase()] || keys["ArrowLeft"]) { 
+    player.vx = -player.speed; 
+    facingLeft = true; 
+    isMoving = true; 
   }
-
+  if (keys[rightKey.toLowerCase()] || keys[rightKey.toUpperCase()] || keys["ArrowRight"]) { 
+    player.vx = player.speed; 
+    facingLeft = false; 
+    isMoving = true; 
+  }
+  
   // デバッグ用：キー入力と移動状態を確認
-  if (keys["ArrowLeft"] || keys["ArrowRight"] || keys[" "]) {
+  if (keys["ArrowLeft"] || keys["ArrowRight"]) {
     console.log("キー入力:", {
       left: keys["ArrowLeft"],
       right: keys["ArrowRight"],
-      space: keys[" "],
       vx: player.vx,
       vy: player.vy,
       onGround: player.onGround
@@ -418,6 +559,16 @@ function update() {
   }
   
   player.vy += player.gravity;
+  
+  // 梯子停止の処理（梯子を登っている＆停止キーを押している場合）
+  const ladderFootX = player.x + player.width / 2;
+  const ladderFootY = player.y + player.height + 1;
+  const ladderTileBelow = getTile(ladderFootX, ladderFootY);
+  const stopKey = window.gameKeys?.stop || 'Shift';
+  if (ladderTileBelow === 8 && (keys[stopKey] || keys["ShiftLeft"] || keys["ShiftRight"])) {
+    player.vy = 0; // 落下を停止
+  }
+  
   const nextY = player.y + player.vy;
   const collisionY = checkCollision(player.x, nextY, player.width, player.height);
   if (!collisionY) {
@@ -677,16 +828,17 @@ function update() {
     }
   }
   
-  // 毒の拡張判定（ブロックの当たり判定の0.1タイル分外側）
-  const poisonMargin = TILE_SIZE * 0.1; // 0.1タイル分のマージン
-  const poisonLeft = player.x - poisonMargin;
-  const poisonRight = player.x + player.width + poisonMargin;
-  const poisonTop = player.y - poisonMargin;
-  const poisonBottom = player.y + player.height + poisonMargin;
+  // 毒の判定（死亡判定とブロック当たり判定を分離）
+  // 死亡判定（0.6倍の範囲）
+  const poisonDeathMargin = TILE_SIZE * 0.2; // 毒の死亡判定を20%縮小（0.6倍）
+  const poisonDeathLeft = player.x + poisonDeathMargin;
+  const poisonDeathRight = player.x + player.width - poisonDeathMargin;
+  const poisonDeathTop = player.y + poisonDeathMargin;
+  const poisonDeathBottom = player.y + player.height - poisonDeathMargin;
   
-  // 毒の拡張判定範囲をチェック
-  for (let row = Math.floor(poisonTop / TILE_SIZE); row <= Math.floor(poisonBottom / TILE_SIZE); row++) {
-    for (let col = Math.floor(poisonLeft / TILE_SIZE); col <= Math.floor(poisonRight / TILE_SIZE); col++) {
+  // 毒の死亡判定範囲をチェック
+  for (let row = Math.floor(poisonDeathTop / TILE_SIZE); row <= Math.floor(poisonDeathBottom / TILE_SIZE); row++) {
+    for (let col = Math.floor(poisonDeathLeft / TILE_SIZE); col <= Math.floor(poisonDeathRight / TILE_SIZE); col++) {
       if (row >= 0 && row < map.length && col >= 0 && col < map[0].length) {
         const tile = map[row][col];
         if (tile === 6 && !isDead) {
@@ -698,18 +850,53 @@ function update() {
   }
   
   // ハシゴの判定（当たり判定なしになったので特殊効果のみ）
-  if (tileBelow === 8) {
-    if (keys["w"]) player.vy = -2;
-    else if (keys["s"]) player.vy = 2;
-    else player.vy = 0;
-    player.onGround = true;
-  }
-  
-  // 胴体判定（プレイヤーの中心部分）
   const bodyX = player.x + player.width / 2;
   const bodyY = player.y + player.height / 2;
   const tileAtBody = getTile(bodyX, bodyY);
   
+  if (tileAtBody === 8) {
+    // キー設定を使用した梯子上昇・下降の処理
+    const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+    const downKey = window.gameKeys?.down || 's';
+    const stopKey = window.gameKeys?.stop || 'Shift';
+    
+    if (keys[ladderUpKey.toLowerCase()] || keys[ladderUpKey.toUpperCase()] || keys["ArrowUp"]) {
+      player.vy = -2; // 上昇
+    } else if (keys[downKey.toLowerCase()] || keys[downKey.toUpperCase()] || keys["ArrowDown"]) {
+      player.vy = 2; // 下降
+    } else if (keys[stopKey] || keys["ShiftLeft"] || keys["ShiftRight"]) {
+      player.vy = 0; // シフトで落下停止
+    } else {
+      player.vy = 0; // 何も押していない時は停止
+    }
+    player.onGround = true;
+  }
+  
+  // ハシゴに登っている時はハシゴ上昇キーでのジャンプを無効にする
+  const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+  if (tileAtBody === 8 && (keys["ArrowUp"] || keys[ladderUpKey.toLowerCase()] || keys[ladderUpKey.toUpperCase()])) {
+    // ハシゴ上昇キーでのジャンプ入力を無視（梯子上昇を優先）
+    // ジャンプ処理をスキップするため、ここでは何もしない
+  }
+  
+  // ジャンプ（スペースキーのみ）
+  const jumpKey = window.gameKeys?.jump || ' ';
+  
+  // ジャンプキーが↑に設定されている場合は↑キーのみでジャンプ
+  if (jumpKey === 'ArrowUp') {
+    if (keys[jumpKey] && player.onGround && tileAtBody !== 8) {
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
+  } else {
+    // 通常のジャンプ処理（スペースキーのみ）
+    if (keys[jumpKey] && player.onGround && tileAtBody !== 8) {
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
+  }
+  
+  // 胴体判定（プレイヤーの中心部分）
   if (tileAtBody === 15) {
     scoa += 100;
     const col = Math.floor(bodyX / TILE_SIZE);

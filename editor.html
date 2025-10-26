@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>2Dマップエディタ（ドラッグ設置対応）</title>
+  <script src="assets-base64.js"></script>
+  <script src="editor-common.js"></script>
+  <!-- <script src="file-manager.js"></script> -->
+  <style>
+    body {
+      margin: 0;
+      font-family: "Yu Gothic", sans-serif;
+      background: #000;
+      color: #1a2a4f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
+      background: #aee;
+      image-rendering: pixelated;
+      border: 2px solid #1a2a4f;
+      display: block;
+      margin-top: 120px;
+    }
+    #slotBar {
+      display: flex;
+      justify-content: center;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 8px;
+      gap: 12px;
+      box-shadow: none;
+    }
+    #handSlot, #eraserSlot {
+      display: flex;
+      align-items: center;
+      margin-right: 0;
+      padding-right: 0;
+      border-right: none;
+    }
+    #mainSlotBar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .hand-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      border: none;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: box-shadow 0.2s, border 0.2s, background 0.2s;
+      outline: none;
+    }
+    .hand-btn:hover {
+      background: #f0f4ff;
+      box-shadow: 0 4px 12px rgba(68,102,255,0.10);
+    }
+    .hand-btn.selected {
+      border: 2px solid #4466ff;
+      box-shadow: 0 0 8px #88f;
+      background: #eaf2ff;
+    }
+    .eraser-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      border: none;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: box-shadow 0.2s, border 0.2s, background 0.2s;
+      outline: none;
+    }
+    .eraser-btn:hover {
+      background: #f0f4ff;
+      box-shadow: 0 4px 12px rgba(68,102,255,0.10);
+    }
+    .eraser-btn.selected {
+      border: 2px solid #4466ff;
+      box-shadow: 0 0 8px #88f;
+      background: #eaf2ff;
+    }
+    .slot-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 3px solid #1a2a4f;
+      background: #eef;
+      margin: 0 5px;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border 0.2s;
+      padding: 0;
+      overflow: hidden;
+    }
+    .slot-btn img {
+      width: 48px;
+      height: 48px;
+      display: block;
+      margin: 0 auto;
+      pointer-events: none;
+      border-radius: 10px;
+    }
+    .slot-btn.selected {
+      background: #88f;
+      border: 2px solid #4466ff;
+      box-shadow: 0 0 8px #88f;
+    }
+    .slot-btn:hover {
+      background: #dde6ff;
+    }
+    .slot-btn.sub {
+      width: 36px;
+      height: 36px;
+      font-size: 12px;
+    }
+    .more-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 2px solid #1a2a4f;
+      background: #f0f0f0;
+      color: #666;
+      font-size: 18px;
+      font-weight: bold;
+      margin-left: 4px;
+      margin-right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .more-btn:hover {
+      background: #e0e0e0;
+      color: #333;
+    }
+    .block-selector {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+    .block-selector.show {
+      display: flex;
+    }
+    .block-selector-content {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 80%;
+      max-height: 80%;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 15px;
+    }
+    .block-selector-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 10px;
+      border: 2px solid #ddd;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .block-selector-btn:hover {
+      border-color: #4466ff;
+      background: #f0f4ff;
+    }
+    .block-selector-btn.selected {
+      border-color: #4466ff;
+      background: #4466ff;
+      color: white;
+    }
+    .block-selector-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      background: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #homeButton, #clearButton, #undoButton, #redoButton, #exportButton, #importButton {
+      position: absolute;
+      top: 10px;
+      font-size: 20px;
+      padding: 10px 16px;
+      z-index: 999;
+      background: #fff;
+      color: #1a2a4f;
+      border-radius: 12px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      min-width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #homeButton { left: 10px; }
+    #clearButton { left: 140px; }
+    #undoButton { left: 270px; }
+    #redoButton { left: 340px; }
+    #exportButton { left: 470px; }
+    #importButton { left: 540px; }
+    
+    #fileInput {
+      display: none;
+    }
+    /* --- ブロック詳細ポップアップ --- */
+    #blockDetailPopup {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      border: 2px solid #4466ff;
+      display: none;
+      align-items: center;
+      padding: 16px 24px 16px 16px;
+      z-index: 10001;
+      min-width: 220px;
+      min-height: 64px;
+      font-size: 18px;
+      font-family: "Yu Gothic", sans-serif;
+      color: #1a2a4f;
+      gap: 18px;
+    }
+    #blockDetailPopup img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: #eef;
+      border: 1.5px solid #bbb;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    #blockDetailPopup .block-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #223;
+      margin-right: 8px;
+    }
+    #blockDetailPopup .close-btn {
+      margin-left: 16px;
+      background: #eee;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      color: #888;
+      cursor: pointer;
+      padding: 2px 10px;
+      transition: background 0.2s;
+    }
+    #blockDetailPopup .close-btn:hover {
+      background: #d0d8ff;
+      color: #4466ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+  <canvas id="gameCanvas" width="1024" height="640"></canvas>
+  <div id="slotBar">
+    <div id="handSlot"></div>
+    <div id="eraserSlot"></div>
+    <div id="mainSlotBar"></div>
+  </div>
+  <button id="homeButton">ホーム</button>
+  <button id="clearButton">🗑️</button>
+  <button id="undoButton">↩</button>
+  <button id="redoButton">↪</button>
+  <button id="exportButton">💾</button>
+  <button id="importButton">📂</button>
+  <input type="file" id="fileInput" accept=".json">
+  <!-- ワールド横幅変更機能は廃止。横幅は常に1000ブロック -->
+  <div id="blockSelector" class="block-selector">
+    <button class="block-selector-close" onclick="closeBlockSelector()">✕</button>
+    <div class="block-selector-content" id="blockSelectorContent"></div>
+  </div>
+  <div id="blockDetailPopup">
+    <img id="blockDetailImg" src="" alt="block" />
+    <span class="block-name" id="blockDetailName"></span>
+    <div id="mushroomSettings" style="margin-top:12px;display:none;">
+     
+    </div>
+    <button class="close-btn" onclick="document.getElementById('blockDetailPopup').style.display='none'">✕</button>
+  </div>
+  <script>
+    console.log('HELLO');
+    // urlParamsとslotNameはeditor-common.jsで既に定義済み
+    // TILE_SIZEもeditor-common.jsで定義済み
+    
+    // エディタ用のcanvasとctxを取得（editor-common.jsで既に定義済みの場合は使用）
+    const editorCanvas = document.getElementById("gameCanvas");
+    if (!window.canvas || !window.ctx) {
+      window.canvas = editorCanvas;
+      window.ctx = window.canvas.getContext("2d");
+      window.ctx.imageSmoothingEnabled = false;
+    }
+    if (window.attachGameCanvas) {
+      window.attachGameCanvas(editorCanvas);
+    }
+    // windowオブジェクトから直接参照（const宣言を避ける）
+    // const canvas = window.canvas;
+    // const ctx = window.ctx;
+
+    // グローバル変数として定義（ワールド横幅変更に対応）
+  window.cols = window.cols || 1000;
+    if (!window.rows) window.rows = 20;
+    const DEFAULT_WORLD_COLS = window.cols;
+    const DEFAULT_WORLD_ROWS = window.rows;
+    const MIN_WORLD_COLS = 1000;
+    let cols = window.cols;
+    let rows = window.rows;
+    let cameraReady = false;
+    let camera = null;
+    function updateEditorBounds(rawMap) {
+      const dims = window.getWorldDimensions(rawMap);
+      window.rows = Math.max(dims.rows, DEFAULT_WORLD_ROWS);
+      window.cols = Math.max(dims.cols, MIN_WORLD_COLS);
+      rows = window.rows;
+      cols = window.cols;
+      return dims;
+    }
+
+    function applyWorldToEditor(worldData, options = {}) {
+      const result = window.applyWorldData(
+        worldData,
+        Object.assign({
+          targetRows: window.rows,
+          targetCols: window.cols,
+          minRows: window.rows,
+          minCols: window.cols
+        }, options)
+      );
+      rows = window.rows;
+      cols = window.cols;
+      if (cameraReady && typeof updateCameraBounds === "function") updateCameraBounds();
+      if (cameraReady && typeof draw === "function") draw();
+      return result;
+    }
+    // mapはeditor-common.jsで定義済み
+
+    // 取り消し・やり直し機能の履歴管理
+    let undoHistory = [];
+    let redoHistory = [];
+    let isUndoRedoAction = false; // 取り消し・やり直し中のフラグ
+
+    // --- ワールドデータ自動読み込み ---
+    function loadWorldData() {
+      const saved = localStorage.getItem("world_" + slotName);
+      if (!saved) {
+        window.dummyOverlays = {};
+        window.enemyDirs = {};
+        window.trampolineAngles = {};
+        window.trampolinePowers = {};
+        window.enemyProps = {};
+        applyWorldToEditor([], {
+          targetRows: window.rows,
+          targetCols: window.cols,
+          minRows: window.rows,
+          minCols: window.cols
+        });
+        return;
+      }
+
+      try {
+        const mapData = JSON.parse(saved);
+        const mapSource = Array.isArray(mapData)
+          ? mapData
+          : (mapData && Array.isArray(mapData.map) ? mapData.map : null);
+
+        if (mapSource) {
+          const dims = updateEditorBounds(mapSource);
+          const result = applyWorldToEditor(mapData);
+          if (result.mismatch) {
+            showMessage(`警告: 保存されたワールドサイズ(${dims.cols || 0}×${dims.rows || 0})が現在の編集範囲と異なるため、範囲外のブロックを削除しました`);
+          }
+          return;
+        }
+      } catch (e) {
+        console.error("ワールドデータ読み込みエラー:", e);
+      }
+
+      // 読み込みに失敗した場合は初期化
+      window.dummyOverlays = {};
+      window.enemyDirs = {};
+      window.trampolineAngles = {};
+      window.trampolinePowers = {};
+      window.enemyProps = {};
+      applyWorldToEditor([], {
+        targetRows: window.rows,
+        targetCols: window.cols,
+        minRows: window.rows,
+        minCols: window.cols
+      });
+    }
+    loadWorldData();
+    if (!window.enemyDirs) window.enemyDirs = {};
+
+    // 設定の読み込み
+    function loadEditorSettings() {
+      const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+      const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+      
+      const defaults = {
+        showGrid: true,
+        snapToGrid: true
+      };
+      
+      // デフォルトキー設定
+      const defaultKeys = {
+        editorLeft: 'a',
+        editorRight: 'd',
+        editorUp: 'w',
+        editorDown: 's'
+      };
+      
+      window.showGrid = settings.showGrid !== undefined ? settings.showGrid : defaults.showGrid;
+      window.snapToGrid = settings.snapToGrid !== undefined ? settings.snapToGrid : defaults.snapToGrid;
+      
+      // エディターキー設定
+      window.editorKeys = {};
+      Object.keys(defaultKeys).forEach(key => {
+        window.editorKeys[key] = keySettings[key] || defaultKeys[key];
+      });
+      
+      console.log('エディタ設定読み込み完了:', {
+        showGrid: window.showGrid, 
+        snapToGrid: window.snapToGrid,
+        keys: window.editorKeys
+      });
+    }
+    loadEditorSettings();
+
+    // 設定変更時のリアルタイム反映
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'gameSettings' || e.key === 'keySettings') {
+        console.log('エディタ設定が変更されました');
+        loadEditorSettings();
+      }
+    });
+
+    // images（0:消しゴム, 1:地面, 2:土, 3:敵, 4:ゴール, 5:石, 6:毒, 7:きのこ, 8:ハシゴ, 9:動く敵）
+    const images = {
+      0: new Image(),
+      1: new Image(),
+      2: new Image(),
+      3: new Image(),
+      4: new Image(),
+      5: new Image(),
+      6: new Image(),
+      7: new Image(),
+      8: new Image(),
+      9: new Image(),
+      10:new Image(),
+      11:new Image(), // breakable block
+      12: new Image(), // rail1
+      13: new Image(), // rail2
+      14: new Image(), // rail3
+      15: new Image(), // coin
+      16: new Image(), // checkpoint
+      17: new Image(), // goldgoal
+      19: new Image(), // dummy block
+      // 色ブロック（ID 20）
+      20: new Image(), // 色ブロック
+      21: new Image(),
+      22: new Image(),
+      23: new Image(),
+      24: new Image(),
+      25: new Image(),
+      26: new Image(),
+      27: new Image(),
+      28: new Image(),
+      29: new Image(),
+      30: new Image(),
+      31: new Image(), // hand.png
+      32: new Image(), // clear.png
+    };
+
+    images[0].src = window.ASSETS_BASE64["eraser.png"];
+    images[1].src = window.ASSETS_BASE64["ground.png"];
+    images[2].src = window.ASSETS_BASE64["dirt.png"];
+    images[3].src = window.ASSETS_BASE64["enemy.png"];
+    images[4].src = window.ASSETS_BASE64["goal.png"];
+    images[5].src = window.ASSETS_BASE64["stone.png"];
+    images[6].src = window.ASSETS_BASE64["poison.png"];
+    images[7].src = window.ASSETS_BASE64["trampoline.png"];
+    images[8].src = window.ASSETS_BASE64["ladder.png"];
+    images[9].src = window.ASSETS_BASE64["enemy-move1.png"];
+    images[10].src = window.ASSETS_BASE64["spawn.png"];
+    images[11].src = window.ASSETS_BASE64["breakblock.png"];
+    images[12].src = window.ASSETS_BASE64["rail1.png"];
+    images[13].src = window.ASSETS_BASE64["rail2.png"];
+    images[14].src = window.ASSETS_BASE64["rail3.png"];
+    images[15].src = window.ASSETS_BASE64["coin.png"];
+    images[16].src = window.ASSETS_BASE64["checkpoint.png"];
+    images[17].src = window.ASSETS_BASE64["goldgoal.png"];
+    images[19].src = window.ASSETS_BASE64["dummy.png"];
+    
+    // 色ブロック画像の設定（ID 20-30）
+    images[20].src = window.ASSETS_BASE64["color.png"];
+    images[21].src = window.ASSETS_BASE64["color1.png"];
+    images[22].src = window.ASSETS_BASE64["color2.png"];
+    images[23].src = window.ASSETS_BASE64["color3.png"];
+    images[24].src = window.ASSETS_BASE64["color4.png"];
+    images[25].src = window.ASSETS_BASE64["color5.png"];
+    images[26].src = window.ASSETS_BASE64["color6.png"];
+    images[27].src = window.ASSETS_BASE64["color7.png"];
+    images[28].src = window.ASSETS_BASE64["color8.png"];
+    images[29].src = window.ASSETS_BASE64["color9.png"];
+    images[30].src = window.ASSETS_BASE64["color10.png"];
+
+    images[31].src = window.ASSETS_BASE64["hand.png"];
+    images[32].src = window.ASSETS_BASE64["clear.png"];
+
+    // 画像読み込みエラーハンドリング
+    Object.values(images).forEach(img => {
+      img.onerror = function() {
+        console.warn('画像読み込みエラー:', img.src);
+      };
+    });
+
+    // --- スロット管理システム ---
+    let mainSlotIndices = [];
+    let allSlotIndices = [];
+    let selectedTile = 2;
+    let isHandMode = false;
+
+    // スロットバー生成
+    const handSlot = document.getElementById("handSlot");
+    const eraserSlot = document.getElementById("eraserSlot");
+    const mainSlotBar = document.getElementById("mainSlotBar");
+    handSlot.innerHTML = "";
+    eraserSlot.innerHTML = "";
+    mainSlotBar.innerHTML = "";
+
+    // 全ブロックIDを生成（消しゴムは除外）
+    allSlotIndices = Array.from({length: 20}, (_, i) => i).filter(i => i !== 0 && i !== 1 && i !== 12 && i !== 13 && i !== 18);
+    if (!allSlotIndices.includes(9)) allSlotIndices.push(9);
+    for (let i = 20; i <= 30; i++) {
+      allSlotIndices.push(i);
+    }
+    // 初期メインスロット設定（最初の8個）
+    mainSlotIndices = allSlotIndices.slice(0, 8);
+
+    // ハンドスロット生成
+    function createHandSlot() {
+      handSlot.innerHTML = "";
+      const btn = document.createElement('button');
+      btn.className = 'hand-btn';
+      btn.innerHTML = '';
+      btn.style.width = btn.style.height = '48px';
+      btn.style.fontSize = Math.floor(48 * 0.7) + 'px';
+      btn.style.backgroundImage = `url(${images[31].src})`;
+      btn.style.backgroundSize = 'cover';
+      btn.addEventListener('click', () => {
+        isHandMode = !isHandMode;
+        document.querySelectorAll('.slot-btn, .eraser-btn, .hand-btn').forEach(b => b.classList.remove('selected'));
+        if (isHandMode) {
+          btn.classList.add('selected');
+        }
+      });
+      handSlot.appendChild(btn);
+    }
+
+    // 消しゴムスロット生成
+    function createEraserSlot() {
+      eraserSlot.innerHTML = "";
+      const btn = document.createElement('button');
+      btn.className = 'eraser-btn';
+      btn.innerHTML = '';
+      btn.style.width = btn.style.height = '48px';
+      btn.style.fontSize = Math.floor(48 * 0.7) + 'px';
+      if (images[0]) {
+        btn.style.backgroundImage = `url(${images[0].src})`;
+        btn.style.backgroundSize = 'cover';
+      } else {
+        btn.textContent = '0';
+      }
+      btn.addEventListener('click', () => {
+        selectedTile = 0;
+        isHandMode = false;
+        document.querySelectorAll('.slot-btn, .eraser-btn, .hand-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      eraserSlot.appendChild(btn);
+    }
+
+    // メインスロット生成
+    function createMainSlotButtons() {
+      mainSlotBar.innerHTML = "";
+      mainSlotIndices.forEach((i, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'slot-btn';
+        btn.innerHTML = '';
+        btn.style.width = btn.style.height = '56px';
+        btn.style.borderRadius = '12px';
+        btn.style.border = '3px solid #1a2a4f';
+        btn.style.background = '#eef';
+        btn.style.padding = '0';
+        btn.style.overflow = 'hidden';
+        if (images[i]) {
+          const img = document.createElement('img');
+          img.src = images[i].src;
+          img.width = img.height = 48;
+          img.style.borderRadius = '10px';
+          img.style.display = 'block';
+          img.style.margin = '0 auto';
+          btn.appendChild(img);
+        } else {
+          btn.textContent = i;
+        }
+        btn.addEventListener('click', () => {
+          selectedTile = i;
+          isHandMode = false;
+          document.querySelectorAll('.slot-btn, .eraser-btn, .hand-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        // --- 手モード時の詳細ポップアップ ---
+        btn.addEventListener('click', (e) => {
+          if (isHandMode) {
+            showBlockDetail(i);
+            e.stopPropagation();
+          }
+        });
+        mainSlotBar.appendChild(btn);
+      });
+      // ":"ボタン
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'more-btn';
+      moreBtn.textContent = ':';
+      moreBtn.onclick = openBlockSelector;
+      mainSlotBar.appendChild(moreBtn);
+    }
+
+    // ブロック選択モーダルを開く
+    function openBlockSelector() {
+      const selector = document.getElementById('blockSelector');
+      const content = document.getElementById('blockSelectorContent');
+      content.innerHTML = '';
+      allSlotIndices.forEach(i => {
+        const btn = document.createElement('button');
+        btn.className = 'block-selector-btn';
+        btn.innerHTML = '';
+        if (images[i]) {
+          btn.style.backgroundImage = `url(${images[i].src})`;
+          btn.style.backgroundSize = 'cover';
+        } else {
+          btn.textContent = i;
+        }
+        btn.onclick = () => selectBlockFromModal(i);
+        content.appendChild(btn);
+      });
+      selector.classList.add('show');
+    }
+    function closeBlockSelector() {
+      document.getElementById('blockSelector').classList.remove('show');
+    }
+    function selectBlockFromModal(blockId) {
+      selectedTile = blockId;
+      moveToMainLeft(blockId);
+      closeBlockSelector();
+    }
+    // ブロック使用時の処理
+    function useBlock(blockId) {
+      const index = mainSlotIndices.indexOf(blockId);
+      if (index > 0) {
+        mainSlotIndices.splice(index, 1);
+        mainSlotIndices.unshift(blockId);
+        createMainSlotButtons();
+      }
+    }
+    // メインスロットの一番左に移動
+    function moveToMainLeft(blockId) {
+      const index = mainSlotIndices.indexOf(blockId);
+      if (index === -1) {
+        mainSlotIndices.unshift(blockId);
+        if (mainSlotIndices.length > 8) {
+          mainSlotIndices.pop();
+        }
+      } else {
+        mainSlotIndices.splice(index, 1);
+        mainSlotIndices.unshift(blockId);
+      }
+      createMainSlotButtons();
+    }
+    // 初期生成
+    createHandSlot();
+    createEraserSlot();
+    createMainSlotButtons();
+    // 初期選択状態を設定
+    document.querySelectorAll('.slot-btn, .eraser-btn, .hand-btn').forEach((b, idx) => {
+      if (idx === 0 && isHandMode) b.classList.add('selected');
+      else if (idx === 1 && selectedTile === 0) b.classList.add('selected');
+      else if (mainSlotIndices[idx-2] === selectedTile) b.classList.add('selected');
+    });
+
+    // ワールド読み込み時に敵の設定をUIに反映する関数
+    window.updateEnemySettingsUI = function() {
+      if (!window.enemyProps) return;
+      
+      // 現在表示されている敵の詳細ポップアップがあれば更新
+      const popup = document.getElementById('blockDetailPopup');
+      if (popup && popup.style.display === 'flex' && window.lastDetailRowCol) {
+        const key = window.lastDetailRowCol;
+        const props = window.enemyProps[key];
+        if (props) {
+          // 上ボタン
+          const topBtn = document.getElementById('topBtn');
+          if (topBtn) {
+            if (props.deathTop) {
+              topBtn.style.backgroundColor = '#ff4136';
+              topBtn.textContent = '🟥';
+              topBtn.title = '上:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitTop) {
+              topBtn.style.backgroundColor = '#2ecc40';
+              topBtn.textContent = '🟩';
+              topBtn.title = '上:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 左ボタン
+          const leftBtn = document.getElementById('leftBtn');
+          if (leftBtn) {
+            if (props.deathSide) {
+              leftBtn.style.backgroundColor = '#ff4136';
+              leftBtn.textContent = '🟥';
+              leftBtn.title = '左:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitSide) {
+              leftBtn.style.backgroundColor = '#2ecc40';
+              leftBtn.textContent = '🟩';
+              leftBtn.title = '左:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 右ボタン
+          const rightBtn = document.getElementById('rightBtn');
+          if (rightBtn) {
+            if (props.deathSide) {
+              rightBtn.style.backgroundColor = '#ff4136';
+              rightBtn.textContent = '🟥';
+              rightBtn.title = '右:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitSide) {
+              rightBtn.style.backgroundColor = '#2ecc40';
+              rightBtn.textContent = '🟩';
+              rightBtn.title = '右:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 下ボタン
+          const bottomBtn = document.getElementById('bottomBtn');
+          if (bottomBtn) {
+            if (props.deathBottom) {
+              bottomBtn.style.backgroundColor = '#ff4136';
+              bottomBtn.textContent = '🟥';
+              bottomBtn.title = '下:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitBottom) {
+              bottomBtn.style.backgroundColor = '#2ecc40';
+              bottomBtn.textContent = '🟩';
+              bottomBtn.title = '下:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+        }
+      }
+    }
+
+    // ワールド読み込み後に敵の設定をUIに反映
+    updateEnemySettingsUI();
+
+    function showMessage(text) {
+      const msg = document.getElementById("message");
+      msg.innerText = text;
+      msg.style.display = "block";
+      setTimeout(() => { msg.style.display = "none"; }, 2000);
+    }
+
+function showConfirm(text, onYes, onNo) {
+  let old = document.getElementById("confirmDialog");
+  if (old) old.remove();
+  const dialog = document.createElement("div");
+  dialog.id = "confirmDialog";
+  dialog.style.position = "fixed";
+  dialog.style.top = "50%";
+  dialog.style.left = "50%";
+  dialog.style.transform = "translate(-50%,-50%)";
+  dialog.style.background = "#fff";
+  dialog.style.color = "#1a2a4f";
+  dialog.style.padding = "24px 32px";
+  dialog.style.borderRadius = '18px'; // ←より大きな丸みもOK
+  dialog.style.boxShadow = "0 6px 20px rgba(0,0,0,0.15)";
+  dialog.style.zIndex = "99999";
+  dialog.style.fontWeight = "bold";
+  dialog.style.fontFamily = "\"Yu Gothic\", sans-serif";
+  dialog.innerHTML = `
+    <div style="margin-bottom:18px;font-size:18px;text-align:center;">${text}</div>
+    <div style="display:flex;gap:24px;justify-content:center;">
+      <button id="yesBtn" style="padding:10px 32px;border:none;border-radius:12px;background:#4466ff;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 1px 4px #2235;">はい</button>
+      <button id="noBtn" style="padding:10px 32px;border:none;border-radius:12px;background:#ccc;color:#1a2a4f;font-size:16px;font-weight:bold;cursor:pointer;">いいえ</button>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+  document.getElementById("yesBtn").onclick = () => {
+    dialog.remove();
+    if (onYes) onYes();
+  };
+  document.getElementById("noBtn").onclick = () => {
+    dialog.remove();
+    if (onNo) onNo();
+  };
+}
+
+
+    // ボタンイベント
+    document.getElementById("homeButton").onclick = () => {
+      showConfirm("ホームに戻りますか？", () => {
+        saveMap();
+        location.href = 'home.html';
+      });
+    };
+    document.getElementById("clearButton").onclick = () => {
+      showConfirm("マップをクリアしますか？この操作は取り消せません。", () => {
+        saveMapState(); // クリア前の状態を保存
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            map[r][c] = 0;
+            if (window.markTileAndNeighborsDirty) window.markTileAndNeighborsDirty(r, c);
+          }
+        }
+        window.dummyOverlays = {};
+        if (window.invalidateStaticChunks) window.invalidateStaticChunks();
+        showMessage("マップをクリアしました！");
+      });
+    };
+    document.getElementById("undoButton").onclick = undo;
+    document.getElementById("redoButton").onclick = redo;
+    document.getElementById("exportButton").onclick = exportWorldData;
+      document.getElementById("importButton").onclick = () => {
+    document.getElementById("fileInput").click();
+  };
+  
+  
+    
+    // ワールド横幅設定の初期化
+  // 横幅変更UI・イベントは廃止
+
+    // ファイル選択時のイベント
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        importWorldData(file);
+        // ファイル入力をリセット（同じファイルを再度選択できるように）
+        e.target.value = "";
+      }
+    });
+
+    // キーボードショートカット
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey || e.metaKey) { // Ctrl (Windows) または Cmd (Mac)
+        if (e.key === "z") {
+          e.preventDefault();
+          undo();
+        } else if (e.key === "y") {
+          e.preventDefault();
+          redo();
+        }
+      }
+    });
+
+    camera = { x: 0, y: 0 };
+    cameraReady = true;
+    if (typeof updateCameraBounds === "function") updateCameraBounds();
+    if (typeof draw === "function") draw();
+    const cameraSpeed = 6; // カメラ移動速度（ver.2の2倍の速度）
+    
+    // キー状態の初期化
+    if (!window.keys) window.keys = {};
+    
+    // keysはeditor-common.jsで定義済み
+    // エディタ用のキーイベントリスナーを追加
+    document.addEventListener("keydown", e => {
+      if (window.keys) window.keys[e.key] = true;
+      
+      // エディター専用のカメラ移動（キー状態を記録）
+      // 実際の移動はupdate関数で連続的に処理
+    });
+    document.addEventListener("keyup", e => {
+      if (window.keys) window.keys[e.key] = false;
+    });
+    
+    // カメラの境界制限を更新する関数
+    function updateCameraBounds() {
+      if (!window.canvas || !camera) return;
+      
+      const canvasWidth = window.canvas.width;
+      const canvasHeight = window.canvas.height;
+      
+      // マップの境界を計算（グローバル変数を使用）
+      const mapWidth = window.cols * TILE_SIZE;
+      const mapHeight = rows * TILE_SIZE;
+      
+      // マップ範囲内に制限
+      const maxCameraX = Math.max(0, mapWidth - canvasWidth);
+      const maxCameraY = Math.max(0, mapHeight - canvasHeight);
+      
+      camera.x = Math.max(0, Math.min(camera.x, maxCameraX));
+      camera.y = Math.max(0, Math.min(camera.y, maxCameraY));
+    }
+    
+
+
+    let isMouseDown = false;
+    let hasSavedState = false; // ドラッグ中の状態保存フラグ
+    let lastOutOfBoundsWarning = 0;
+    
+        // canvasが存在する場合のみイベントリスナーを追加
+    if (window.canvas) {
+      window.canvas.addEventListener("mousedown", e => {
+      isMouseDown = true;
+      hasSavedState = false; // ドラッグ開始時にリセット
+    });
+      window.canvas.addEventListener("mouseup", e => {
+      isMouseDown = false;
+      hasSavedState = false; // ドラッグ終了時にリセット
+    });
+      window.canvas.addEventListener("mouseleave", e => {
+      isMouseDown = false;
+      hasSavedState = false; // マウスが離れた時もリセット
+    });
+
+      window.canvas.addEventListener("mousemove", placeTile);
+      window.canvas.addEventListener("click", placeTile);
+    }
+
+    // タッチイベント対応
+    let isTouchDown = false;
+    let lastPlacedTile = { row: -1, col: -1 }; // 最後に配置したタイルの位置
+    let lastTouchTime = 0; // 最後のタッチ処理時間
+    const touchThrottle = 50; // タッチ処理の間隔を50msに調整（より反応しやすく）
+    
+        if (window.canvas) {
+      window.canvas.addEventListener("touchstart", e => {
+      e.preventDefault(); // デフォルトのスクロールを防ぐ
+      isTouchDown = true;
+      hasSavedState = false; // タッチ開始時にリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチ開始時にリセット
+    });
+      window.canvas.addEventListener("touchend", e => {
+      e.preventDefault();
+      isTouchDown = false;
+      hasSavedState = false; // タッチ終了時にリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチ終了時にリセット
+    });
+      window.canvas.addEventListener("touchcancel", e => {
+      e.preventDefault();
+      isTouchDown = false;
+      hasSavedState = false; // タッチキャンセル時もリセット
+      lastPlacedTile = { row: -1, col: -1 }; // タッチキャンセル時もリセット
+    });
+
+      window.canvas.addEventListener("touchmove", e => {
+      e.preventDefault(); // デフォルトのスクロールを防ぐ
+      const now = performance.now();
+      if (isTouchDown && e.touches.length > 0 && now - lastTouchTime > touchThrottle) {
+        const touch = e.touches[0];
+        placeTileTouch(touch);
+        lastTouchTime = now;
+      }
+    });
+    }
+
+    // --- トランポリン角度管理 ---
+    if (!window.trampolineAngles) window.trampolineAngles = {};
+
+    function placeTile(e) {
+      if (!isMouseDown && e.type !== "click") return;
+      if (!window.canvas) return;
+      
+      // キャンバスの実際のサイズと表示サイズを取得
+      const rect = window.canvas.getBoundingClientRect();
+      
+      // マウス位置をキャンバス座標系に変換
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      
+      // キャンバスの表示サイズと実際のサイズの比率を計算
+      const scaleX = window.canvas.width / rect.width;
+      const scaleY = window.canvas.height / rect.height;
+      
+      // スケールを考慮してキャンバス座標を計算
+      const canvasX = mouseX * scaleX;
+      const canvasY = mouseY * scaleY;
+      
+      // カメラ位置を考慮してワールド座標を計算
+      const worldX = canvasX + camera.x;
+      const worldY = canvasY + camera.y;
+      
+      // タイル座標を計算
+      const col = Math.floor(worldX / TILE_SIZE);
+      const row = Math.floor(worldY / TILE_SIZE);
+      
+      // デバッグ用ログ（開発時のみ）
+      if (window.debugMode) {
+        console.log('座標変換デバッグ:', {
+          mouseX, mouseY,
+          scaleX, scaleY,
+          canvasX, canvasY,
+          cameraX: camera.x, cameraY: camera.y,
+          worldX, worldY,
+          col, row,
+          tileSize: TILE_SIZE
+        });
+      }
+      
+      const maxCols = window.cols;
+      const maxRows = window.rows;
+      if (col < 0 || row < 0 || col >= maxCols || row >= maxRows) {
+        const now = performance.now();
+        if (col >= 0 && row >= 0 && now - lastOutOfBoundsWarning > 800) {
+          showMessage("編集できる範囲外です");
+          lastOutOfBoundsWarning = now;
+        }
+        return;
+      }
+
+      if (!map[row]) return;
+
+      if (isHandMode) {
+        const blockId = map[row][col];
+        if (blockId !== 0) {
+          window.lastDetailRowCol = `${row},${col}`;
+          showBlockDetail(blockId);
+        }
+        return;
+      }
+
+      // ドラッグ中の最初の1回だけ、またはクリック時に状態を保存
+      if (!hasSavedState || e.type === "click") {
+        saveMapState();
+        hasSavedState = true;
+      }
+      if (selectedTile === 10) {
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 10) map[r][c] = 0;
+          }
+        }
+        map[row][col] = 10;
+      } else if (selectedTile === 19) { // ダミーブロック
+        // ダミーブロックは既存ブロックの上にのみ置ける
+        const existingTile = map[row][col];
+        if (existingTile !== 0 && existingTile !== 19) {
+          map[row][col] = 19;
+          if (!window.dummyOverlays) window.dummyOverlays = {};
+          window.dummyOverlays[`${row},${col}`] = existingTile;
+        }
+      } else if (selectedTile === 14) {
+        map[row][col] = 14;
+        updateRailTiles(row, col);
+        if (col > 0) updateRailTiles(row, col - 1);
+        if (col < cols - 1) updateRailTiles(row, col + 1);
+      } else if (selectedTile === 2) {
+        if (row === 0 || map[row-1][col] === 0) {
+          map[row][col] = 1;
+        } else {
+          map[row][col] = 2;
+        }
+          // 設置直後に草・土の自動変換処理を必ず実行
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 1 && r > 0 && map[r-1][c] !== 0) {
+              const tileAbove = map[r-1][c];
+              if (tileAbove !== 4 && tileAbove !== 15 && tileAbove !== 16 && tileAbove !== 17 && tileAbove !== 10 && tileAbove !== 3) {
+                map[r][c] = 2;
+                if (window.markTileAndNeighborsDirty) window.markTileAndNeighborsDirty(r, c);
+              }
+            }
+            if (map[r][c] === 2 && (r === 0 || map[r-1][c] === 0)) {
+              map[r][c] = 1;
+              if (window.markTileAndNeighborsDirty) window.markTileAndNeighborsDirty(r, c);
+            }
+          }
+        }
+      } else if (selectedTile === 9) {
+        map[row][col] = 9;
+        const key = `${row},${col}`;
+        window.enemyDirs[key] = 1;
+        draw();
+      } else if (selectedTile === 7) {
+        // トランポリンの場合は角度と力を初期化
+        map[row][col] = 7;
+        const key = `${row},${col}`;
+        if (!window.trampolineAngles) window.trampolineAngles = {};
+        if (!window.trampolinePowers) window.trampolinePowers = {};
+        window.trampolineAngles[key] = 0; // デフォルトは上向き（0°）
+        window.trampolinePowers[key] = 2.2; // デフォルトは2.2倍
+      } else {
+        map[row][col] = selectedTile;
+      }
+      if (window.markTileAndNeighborsDirty) {
+        window.markTileAndNeighborsDirty(row, col);
+      }
+      draw();
+    }
+
+    function placeTileTouch(touch) {
+      if (!window.canvas) return;
+      
+      // キャンバスの実際のサイズと表示サイズを取得
+      const rect = window.canvas.getBoundingClientRect();
+      
+      // タッチ位置をキャンバス座標系に変換
+      const touchX = touch.clientX - rect.left;
+      const touchY = touch.clientY - rect.top;
+      
+      // キャンバスの表示サイズと実際のサイズの比率を計算
+      const scaleX = window.canvas.width / rect.width;
+      const scaleY = window.canvas.height / rect.height;
+      
+      // スケールを考慮してキャンバス座標を計算
+      const canvasX = touchX * scaleX;
+      const canvasY = touchY * scaleY;
+      
+      // カメラ位置を考慮してワールド座標を計算
+      const worldX = canvasX + camera.x;
+      const worldY = canvasY + camera.y;
+      
+      // タイル座標を計算
+      const col = Math.floor(worldX / TILE_SIZE);
+      const row = Math.floor(worldY / TILE_SIZE);
+      
+      // 重複チェックを緩和（同じタイルでも少し間隔を空ければ配置可能）
+      const now = performance.now();
+      if (col === lastPlacedTile.col && row === lastPlacedTile.row && now - lastTouchTime < 100) {
+        return;
+      }
+      
+      const maxCols = window.cols;
+      const maxRows = window.rows;
+      if (col < 0 || row < 0 || col >= maxCols || row >= maxRows) {
+        if (col >= 0 && row >= 0 && now - lastOutOfBoundsWarning > 800) {
+          showMessage("編集できる範囲外です");
+          lastOutOfBoundsWarning = now;
+        }
+        return;
+      }
+
+      if (!map[row]) return;
+
+      if (isHandMode) {
+        const blockId = map[row][col];
+        if (blockId !== 0) {
+          window.lastDetailRowCol = `${row},${col}`;
+          showBlockDetail(blockId);
+        }
+        return;
+      }
+      lastPlacedTile = { row, col };
+      lastTouchTime = now;
+      
+      if (!hasSavedState) {
+        saveMapState();
+        hasSavedState = true;
+      }
+      if (selectedTile === 10) {
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 10) map[r][c] = 0;
+          }
+        }
+        map[row][col] = 10;
+      } else if (selectedTile === 19) {
+        const existingTile = map[row][col];
+        if (existingTile !== 0 && existingTile !== 19) {
+          map[row][col] = 19;
+          if (!window.dummyOverlays) window.dummyOverlays = {};
+          window.dummyOverlays[`${row},${col}`] = existingTile;
+        }
+      } else if (selectedTile === 14) {
+        map[row][col] = 14;
+        updateRailTiles(row, col);
+        if (col > 0) updateRailTiles(row, col - 1);
+        if (col < cols - 1) updateRailTiles(row, col + 1);
+      } else if (selectedTile === 2) {
+        if (row === 0 || map[row-1][col] === 0) {
+          map[row][col] = 1;
+        } else {
+          map[row][col] = 2;
+        }
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 1 && r > 0 && map[r-1][c] !== 0) {
+              map[r][c] = 2;
+            }
+            if (map[r][c] === 2 && (r === 0 || map[r-1][c] === 0)) {
+              map[r][c] = 1;
+            }
+          }
+        }
+      } else if (selectedTile === 9) {
+        map[row][col] = 9;
+        const key = `${row},${col}`;
+        window.enemyDirs[key] = 1;
+        draw();
+      } else if (selectedTile === 7) {
+        // トランポリンの場合は角度と力を初期化
+        map[row][col] = 7;
+        const key = `${row},${col}`;
+        if (!window.trampolineAngles) window.trampolineAngles = {};
+        if (!window.trampolinePowers) window.trampolinePowers = {};
+        window.trampolineAngles[key] = 0; // デフォルトは上向き（0°）
+        window.trampolinePowers[key] = 2.2; // デフォルトは2.2倍
+      } else {
+        map[row][col] = selectedTile;
+      }
+      if (window.markTileAndNeighborsDirty) {
+        window.markTileAndNeighborsDirty(row, col);
+      }
+      draw(); // タイル配置後に描画を更新
+    }
+
+    // レール連結状態に応じてタイルIDを自動で置換
+    function updateRailTiles(row, col) {
+      if (map[row][col] < 12 || map[row][col] > 14) return;
+      const left = col > 0 && map[row][col - 1] >= 12 && map[row][col - 1] <= 14;
+      const right = col < cols - 1 && map[row][col + 1] >= 12 && map[row][col + 1] <= 14;
+      if (!left && !right) {
+        map[row][col] = 14; // 単体
+      } else if (left && right) {
+        map[row][col] = 12; // 中間
+      } else if (right) {
+        map[row][col] = 13; // 右端
+      } else if (left) {
+        map[row][col] = 13; // 左端（反転描画は描画時に）
+      }
+      if (window.markTileAndNeighborsDirty) {
+        window.markTileAndNeighborsDirty(row, col);
+      }
+    }
+
+    function update() {
+      // 連続的なカメラ移動（ver.2スタイル）
+      if (window.keys) {
+        if (window.keys['a'] || window.keys['A']) {
+          camera.x -= cameraSpeed;
+        }
+        if (window.keys['d'] || window.keys['D']) {
+          camera.x += cameraSpeed;
+        }
+        if (window.keys['w'] || window.keys['W']) {
+          camera.y -= cameraSpeed;
+        }
+        if (window.keys['s'] || window.keys['S']) {
+          camera.y += cameraSpeed;
+        }
+      }
+      
+      // カメラの境界制限を更新
+      updateCameraBounds();
+      
+      // 土と草の変換処理（0.5秒間に一度）
+      if (!window.groundDirtTimer) window.groundDirtTimer = 0;
+      window.groundDirtTimer++;
+      if (window.groundDirtTimer >= 30) { // 60fps * 0.5秒 = 30フレーム
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === 1 && r > 0 && map[r-1][c] !== 0) {
+              // スコアをゲットできるブロック、チェックポイント、スポーン地点、動く敵は除外
+              const tileAbove = map[r-1][c];
+              if (tileAbove !== 4 && tileAbove !== 15 && tileAbove !== 16 && tileAbove !== 17 && tileAbove !== 10 && tileAbove !== 3) {
+                map[r][c] = 2; // groundの上に何かあればdirtに変換
+              }
+            }
+            if (map[r][c] === 2 && (r === 0 || map[r-1][c] === 0)) {
+              map[r][c] = 1; // dirtの上に何もなければgroundに変換
+            }
+          }
+        }
+        window.groundDirtTimer = 0;
+      }
+    }
+    
+
+    function draw() {
+      if (!window.canvas || !window.ctx) return; // canvasが存在しない場合は描画をスキップ
+      window.ctx.clearRect(0, 0, window.canvas.width, window.canvas.height);
+      window.ctx.fillStyle = "#aee";
+      window.ctx.fillRect(0, 0, window.canvas.width, window.canvas.height);
+      
+      // カメラ移動を適用
+      window.ctx.save();
+      window.ctx.translate(-camera.x, -camera.y);
+
+      const canvasWidth = window.canvas.width;
+      const canvasHeight = window.canvas.height;
+      const paddingTiles = 2;
+      const visibleColStart = Math.max(0, Math.floor(camera.x / TILE_SIZE) - paddingTiles);
+      const visibleColEnd = Math.min(window.cols, Math.ceil((camera.x + canvasWidth) / TILE_SIZE) + paddingTiles);
+      const visibleRowStart = Math.max(0, Math.floor(camera.y / TILE_SIZE) - paddingTiles);
+      const visibleRowEnd = Math.min(window.rows, Math.ceil((camera.y + canvasHeight) / TILE_SIZE) + paddingTiles);
+      
+      // 1. 通常のタイルを描画（ダミーブロックは除外）
+      for (let r = visibleRowStart; r < Math.min(visibleRowEnd, map.length); r++) {
+        const rowTiles = map[r];
+        if (!rowTiles) continue;
+        for (let c = visibleColStart; c < Math.min(visibleColEnd, rowTiles.length); c++) {
+          const tile = rowTiles[c];
+          const x = c * TILE_SIZE;
+          const y = r * TILE_SIZE;
+          if (tile === 19) continue; // ダミーブロックは後で描画
+          if (tile === 7) {
+            // トランポリンは角度に応じて回転描画
+            const key = `${r},${c}`;
+            const angle = (window.trampolineAngles[key] || 0) * Math.PI / 180;
+            ctx.save();
+            ctx.translate(x + TILE_SIZE/2, y + TILE_SIZE/2);
+            ctx.rotate(angle);
+            // 縦長に描画（中心基準で下方向に伸ばす）
+            ctx.drawImage(images[7], -TILE_SIZE/2, -TILE_SIZE*0.75, TILE_SIZE, TILE_SIZE*1.5);
+            ctx.restore();
+          } else if (tile >= 12 && tile <= 14) {
+            if (tile === 12) {
+              ctx.drawImage(images[12], x, y, TILE_SIZE, TILE_SIZE);
+            } else if (tile === 13) {
+              const left = c > 0 && map[r][c-1] >= 12 && map[r][c-1] <= 14;
+              if (left) {
+                ctx.drawImage(images[13], x, y, TILE_SIZE, TILE_SIZE);
+              } else {
+                ctx.save();
+                ctx.translate(x + TILE_SIZE, y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(images[13], 0, 0, TILE_SIZE, TILE_SIZE);
+                ctx.restore();
+              }
+            } else if (tile === 14) {
+              ctx.drawImage(images[14], x, y, TILE_SIZE, TILE_SIZE);
+            }
+          } else if (tile >= 20 && tile <= 30) {
+            ctx.drawImage(images[tile], x, y, TILE_SIZE, TILE_SIZE);
+          } else if (tile !== 0 && images[tile]) {
+            ctx.drawImage(images[tile], x, y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+      // 2. ダミーブロックを一番手前に描画
+      for (let r = visibleRowStart; r < Math.min(visibleRowEnd, map.length); r++) {
+        const rowTiles = map[r];
+        if (!rowTiles) continue;
+        for (let c = visibleColStart; c < Math.min(visibleColEnd, rowTiles.length); c++) {
+          const tile = rowTiles[c];
+          if (tile === 19 && window.dummyOverlays && window.dummyOverlays[`${r},${c}`]) {
+            const x = c * TILE_SIZE;
+            const y = r * TILE_SIZE;
+            const drawTile = window.dummyOverlays[`${r},${c}`];
+            if (drawTile >= 12 && drawTile <= 14) {
+              if (drawTile === 12) {
+                ctx.drawImage(images[12], x, y, TILE_SIZE, TILE_SIZE);
+              } else if (drawTile === 13) {
+                const left = c > 0 && map[r][c-1] >= 12 && map[r][c-1] <= 14;
+                if (left) {
+                  ctx.drawImage(images[13], x, y, TILE_SIZE, TILE_SIZE);
+                } else {
+                  ctx.save();
+                  ctx.translate(x + TILE_SIZE, y);
+                  ctx.scale(-1, 1);
+                  ctx.drawImage(images[13], 0, 0, TILE_SIZE, TILE_SIZE);
+                  ctx.restore();
+                }
+              } else if (drawTile === 14) {
+                ctx.drawImage(images[14], x, y, TILE_SIZE, TILE_SIZE);
+              }
+            } else if (drawTile >= 20 && drawTile <= 30) {
+              ctx.drawImage(images[drawTile], x, y, TILE_SIZE, TILE_SIZE);
+            } else if (drawTile !== 0 && images[drawTile]) {
+              ctx.drawImage(images[drawTile], x, y, TILE_SIZE, TILE_SIZE);
+            }
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+            ctx.restore();
+          }
+        }
+      }
+      if (window.showCollisionBoxes) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 64, 64, 0.8)';
+        const pixelRatio = window.renderPixelRatio || 1;
+        ctx.lineWidth = 1 / pixelRatio;
+        for (let r = visibleRowStart; r < Math.min(visibleRowEnd, map.length); r++) {
+          const rowTiles = map[r];
+          if (!rowTiles) continue;
+          for (let c = visibleColStart; c < Math.min(visibleColEnd, rowTiles.length); c++) {
+            let drawTile = rowTiles[c];
+            if (drawTile === 0) continue;
+            if (drawTile === 19 && window.dummyOverlays && window.dummyOverlays[`${r},${c}`]) {
+              drawTile = window.dummyOverlays[`${r},${c}`];
+            }
+            const x = c * TILE_SIZE;
+            const y = r * TILE_SIZE;
+            ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+        ctx.restore();
+      }
+      // 3. 動く敵の矢印を一番手前に描画
+      for (let r = visibleRowStart; r < Math.min(visibleRowEnd, rows); r++) {
+        for (let c = visibleColStart; c < Math.min(visibleColEnd, cols); c++) {
+          if (map[r][c] === 9) {
+            const x = c * TILE_SIZE;
+            const y = r * TILE_SIZE;
+            const key = `${r},${c}`;
+            const dir = window.enemyDirs[key] !== undefined ? window.enemyDirs[key] : 1;
+            ctx.save();
+            ctx.font = 'bold ' + Math.floor(TILE_SIZE * 1.2) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = '#f00';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            const arrow = dir === 1 ? '→' : '←';
+            ctx.strokeText(arrow, x + TILE_SIZE/2, y + TILE_SIZE/2);
+            ctx.fillText(arrow, x + TILE_SIZE/2, y + TILE_SIZE/2);
+            ctx.restore();
+          }
+        }
+      }
+      // グリッド描画
+      if (window.showGrid) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.lineWidth = 1;
+        // 画面に映る範囲だけグリッドを描画
+        const gridStartCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
+        const gridEndCol = Math.min(window.cols, Math.ceil((camera.x + window.canvas.width) / TILE_SIZE));
+        const gridStartRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
+        const gridEndRow = Math.min(window.rows, Math.ceil((camera.y + window.canvas.height) / TILE_SIZE));
+        for (let c = gridStartCol; c <= gridEndCol; c++) {
+          const x = c * TILE_SIZE;
+          window.ctx.beginPath();
+          window.ctx.moveTo(x, 0);
+          window.ctx.lineTo(x, window.canvas.height);
+          window.ctx.stroke();
+        }
+        for (let r = gridStartRow; r <= gridEndRow; r++) {
+          const y = r * TILE_SIZE;
+          window.ctx.beginPath();
+          window.ctx.moveTo(0, y);
+          window.ctx.lineTo(window.canvas.width, y);
+          window.ctx.stroke();
+        }
+      }
+      
+      // カメラ移動の復元
+      window.ctx.restore();
+    }
+
+    // エディタページ用のゲームループ（スムーズなカメラ移動のため）
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // エディタページではgameLoopを実行
+    gameLoop();
+
+    Promise.all(Object.values(images).map(img => new Promise(res => img.onload = res))).then(() => {
+      // エディタページでは初期描画のみ実行
+      if (window.canvas && window.ctx) {
+        updateCameraBounds(); // 初期カメラ境界制限を適用
+        draw();
+      }
+    });
+
+    function saveMap() {
+      const mapData = {
+        map: map,
+        dummyOverlays: window.dummyOverlays || {},
+        enemyDirs: window.enemyDirs || {},
+        trampolineAngles: window.trampolineAngles || {},
+        trampolinePowers: window.trampolinePowers || {},
+        enemyProps: window.enemyProps || {},
+      };
+      localStorage.setItem("world_" + slotName, JSON.stringify(mapData));
+      if (typeof saveThumbnailData === 'function') {
+        try {
+          saveThumbnailData();
+        } catch (err) {
+          console.warn('サムネイルデータの更新に失敗しました:', err);
+        }
+      }
+      localStorage.removeItem("thumb_" + slotName);
+    }
+
+    function loadMap() {
+      const saved = localStorage.getItem("world_" + slotName);
+      if (saved) {
+        try {
+          const mapData = JSON.parse(saved);
+          const mapSource = Array.isArray(mapData)
+            ? mapData
+            : (mapData && Array.isArray(mapData.map) ? mapData.map : null);
+
+          if (mapSource) {
+            const dims = updateEditorBounds(mapSource);
+            const result = applyWorldToEditor(mapData);
+            if (result.mismatch) {
+              showMessage("マップを読み込みました！（範囲外のブロックを削除）");
+            } else {
+              showMessage("マップを読み込みました！");
+            }
+            return;
+          }
+        } catch (e) {
+          showMessage("読み込みエラー: " + e.message);
+          return;
+        }
+      } else {
+        showMessage("保存されたマップがありません！");
+      }
+      // 失敗時は初期化
+      window.dummyOverlays = {};
+      window.enemyDirs = {};
+      window.trampolineAngles = {};
+      window.trampolinePowers = {};
+      window.enemyProps = {};
+      applyWorldToEditor([], {
+        targetRows: window.rows,
+        targetCols: window.cols,
+        minRows: window.rows,
+        minCols: window.cols
+      });
+    }
+
+    // マップの状態を保存
+    function saveMapState() {
+      if (isUndoRedoAction) return;
+      const mapCopy = map.map(row => [...row]);
+      const dummyOverlaysCopy = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      const enemyDirsCopy = window.enemyDirs ? JSON.parse(JSON.stringify(window.enemyDirs)) : {};
+      const trampolineAnglesCopy = window.trampolineAngles ? JSON.parse(JSON.stringify(window.trampolineAngles)) : {};
+      const enemyPropsCopy = window.enemyProps ? JSON.parse(JSON.stringify(window.enemyProps)) : {};
+      undoHistory.push({
+        map: mapCopy,
+        dummyOverlays: dummyOverlaysCopy,
+        enemyDirs: enemyDirsCopy,
+        trampolineAngles: trampolineAnglesCopy,
+        trampolinePowers: window.trampolinePowers ? JSON.parse(JSON.stringify(window.trampolinePowers)) : {},
+        enemyProps: enemyPropsCopy
+      });
+      if (undoHistory.length > 20) undoHistory.shift();
+      redoHistory = [];
+    }
+
+    // 取り消し機能
+    function undo() {
+      if (undoHistory.length === 0) {
+        showMessage("取り消す操作がありません");
+        return;
+      }
+      
+      // 現在の状態をやり直し履歴に保存
+      const currentMap = map.map(row => [...row]);
+      const currentDummyOverlays = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      const currentEnemyDirs = window.enemyDirs ? JSON.parse(JSON.stringify(window.enemyDirs)) : {};
+      const currentTrampolineAngles = window.trampolineAngles ? JSON.parse(JSON.stringify(window.trampolineAngles)) : {};
+      const currentEnemyProps = window.enemyProps ? JSON.parse(JSON.stringify(window.enemyProps)) : {};
+      const currentTrampolinePowers = window.trampolinePowers ? JSON.parse(JSON.stringify(window.trampolinePowers)) : {};
+      redoHistory.push({
+        map: currentMap,
+        dummyOverlays: currentDummyOverlays,
+        enemyDirs: currentEnemyDirs,
+        trampolineAngles: currentTrampolineAngles,
+        trampolinePowers: currentTrampolinePowers,
+        enemyProps: currentEnemyProps
+      });
+      
+      // 前の状態を復元
+      const previousState = undoHistory.pop();
+      isUndoRedoAction = true;
+      
+      map.length = 0;
+      map.push(...previousState.map);
+      window.dummyOverlays = previousState.dummyOverlays;
+      window.enemyDirs = previousState.enemyDirs;
+      window.trampolineAngles = previousState.trampolineAngles;
+      window.trampolinePowers = previousState.trampolinePowers || {};
+      window.enemyProps = previousState.enemyProps;
+      
+      if (window.invalidateStaticChunks) window.invalidateStaticChunks();
+      isUndoRedoAction = false;
+      showMessage("取り消しました");
+    }
+
+    // やり直し機能
+    function redo() {
+      if (redoHistory.length === 0) {
+        showMessage("やり直す操作がありません");
+        return;
+      }
+      
+      // 現在の状態をやり直し履歴に保存
+      const currentMap = map.map(row => [...row]);
+      const currentDummyOverlays = window.dummyOverlays ? JSON.parse(JSON.stringify(window.dummyOverlays)) : {};
+      const currentEnemyDirs = window.enemyDirs ? JSON.parse(JSON.stringify(window.enemyDirs)) : {};
+      const currentTrampolineAngles = window.trampolineAngles ? JSON.parse(JSON.stringify(window.trampolineAngles)) : {};
+      const currentEnemyProps = window.enemyProps ? JSON.parse(JSON.stringify(window.enemyProps)) : {};
+      const currentTrampolinePowers = window.trampolinePowers ? JSON.parse(JSON.stringify(window.trampolinePowers)) : {};
+      redoHistory.push({
+        map: currentMap,
+        dummyOverlays: currentDummyOverlays,
+        enemyDirs: currentEnemyDirs,
+        trampolineAngles: currentTrampolineAngles,
+        trampolinePowers: currentTrampolinePowers,
+        enemyProps: currentEnemyProps
+      });
+      
+      // 次の状態を復元
+      const nextState = redoHistory.pop();
+      isUndoRedoAction = true;
+      
+      map.length = 0;
+      map.push(...nextState.map);
+      window.dummyOverlays = nextState.dummyOverlays;
+      window.enemyDirs = nextState.enemyDirs;
+      window.trampolineAngles = nextState.trampolineAngles;
+      window.trampolinePowers = nextState.trampolinePowers || {};
+      window.enemyProps = nextState.enemyProps;
+      
+      if (window.invalidateStaticChunks) window.invalidateStaticChunks();
+      isUndoRedoAction = false;
+      showMessage("やり直しました");
+    }
+
+    // ワールド横幅を適用する関数
+    function applyWorldWidth(newWidth) {
+      if (newWidth === window.cols) {
+        showMessage("現在の横幅と同じです");
+        return;
+      }
+      
+      showConfirm(`ワールド横幅を${newWidth}に変更しますか？現在のマップデータは保持されます。`, () => {
+        // 現在の状態を履歴に保存
+        saveMapState();
+        
+        const oldCols = window.cols;
+        
+        if (newWidth > oldCols) {
+          // 横幅を拡張
+          for (let r = 0; r < window.rows; r++) {
+            for (let c = oldCols; c < newWidth; c++) {
+              map[r].push(0);
+            }
+          }
+        } else {
+          // 横幅を縮小（右端から削除）
+          for (let r = 0; r < window.rows; r++) {
+            map[r].splice(newWidth);
+          }
+        }
+        
+        // グローバル変数を更新
+        window.cols = newWidth;
+        cols = window.cols;
+        window.trimWorldMetadata(window.rows, window.cols);
+        
+        // カメラ境界を更新
+        updateCameraBounds();
+        
+        // 入力欄を更新
+        document.getElementById("worldWidthInput").value = newWidth;
+        if (window.invalidateStaticChunks) window.invalidateStaticChunks();
+        showMessage(`ワールド横幅を${newWidth}に変更しました`);
+      });
+    }
+
+    // ワールドデータをJSONファイルとしてエクスポート
+    function exportWorldData() {
+      const worldData = {
+        name: slotName,
+        map: map,
+        dummyOverlays: window.dummyOverlays || {},
+        enemyDirs: window.enemyDirs || {},
+        trampolineAngles: window.trampolineAngles || {},
+        trampolinePowers: window.trampolinePowers || {},
+        enemyProps: window.enemyProps || {},
+        exportDate: new Date().toISOString(),
+        version: "1.0"
+      };
+      
+      const dataStr = JSON.stringify(worldData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `${slotName}_world.json`;
+      link.click();
+      
+      URL.revokeObjectURL(link.href);
+      showMessage("ワールドデータをエクスポートしました！");
+    }
+
+    // JSONファイルからワールドデータをインポート
+    function importWorldData(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const worldData = JSON.parse(e.target.result);
+          
+          // データ形式の検証
+          if (!worldData.map || !Array.isArray(worldData.map)) {
+            showMessage("無効なワールドデータファイルです");
+            return;
+          }
+
+          const dims = window.getWorldDimensions(worldData.map);
+          const mismatch = !!(dims && (dims.rows !== window.rows || dims.cols !== window.cols));
+          if (mismatch) {
+            showMessage(`警告: マップサイズが異なります（現在: ${window.cols}×${window.rows} → 読み込み: ${dims.cols || 0}×${dims.rows || 0}）`);
+          }
+          
+          const mismatchNote = mismatch
+            ? `<br><span style="display:block;margin-top:12px;color:#ff4136;font-size:14px;">※ 編集可能範囲外のブロックは削除されます。</span>`
+            : "";
+          showConfirm(`ワールド「${worldData.name || '不明'}」を読み込みますか？現在のマップは上書きされます。${mismatchNote}`, () => {
+            // 現在の状態を履歴に保存
+            saveMapState();
+            
+            // データを読み込み
+            updateEditorBounds(worldData.map);
+            const appliedInfo = applyWorldToEditor(worldData);
+
+            if (mismatch || appliedInfo.mismatch) {
+              showMessage("ワールドデータをインポートしました！（範囲外のブロックを削除）");
+            } else {
+              showMessage("ワールドデータをインポートしました！");
+            }
+          });
+          
+        } catch (error) {
+          showMessage("ファイルの読み込みに失敗しました: " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- ブロック詳細ポップアップ表示 ---
+    const blockNames = {
+      0: '消しゴム',
+      1: '草',
+      2: '土',
+      3: '棘',
+      4: 'ゴール',
+      5: '石',
+      6: '毒',
+      7: 'きのこ',
+      8: 'ハシゴ',
+      9: '動く敵',
+      10: 'スポーン',
+      11: '壊れるブロック',
+      12: 'レール(中)',
+      13: 'レール(端)',
+      14: 'レール(単体)',
+      15: 'コイン',
+      16: 'チェックポイント',
+      17: '金ゴール',
+      19: 'ダミーブロック',
+      20: '色ブロック0',
+      21: '色ブロック1',
+      22: '色ブロック2',
+      23: '色ブロック3',
+      24: '色ブロック4',
+      25: '色ブロック5',
+      26: '色ブロック6',
+      27: '色ブロック7',
+      28: '色ブロック8',
+      29: '色ブロック9',
+      30: '色ブロック10',
+      31: '手',
+      32: 'クリア',
+    };
+
+    // ブロック詳細ポップアップ表示
+    function showBlockDetail(blockId) {
+      const popup = document.getElementById('blockDetailPopup');
+      const img = document.getElementById('blockDetailImg');
+      const name = document.getElementById('blockDetailName');
+      if (images[blockId]) {
+        img.src = images[blockId].src;
+        img.style.display = '';
+      } else {
+        img.style.display = 'none';
+      }
+      name.textContent = blockNames[blockId] || `ID:${blockId}`;
+
+      // きのこ（blockId===7）の場合のみジャンプ挙動設定UIを表示
+      const mushroomSettings = document.getElementById('mushroomSettings');
+      if (blockId === 7) {
+        if (mushroomSettings) {
+          mushroomSettings.style.display = 'block';
+          // チェックボックスの値をlocalStorageから復元
+          const checkbox = document.getElementById('mushroomMoveCheckbox');
+          if (checkbox) {
+            const saved = localStorage.getItem('editor_mushroomMove');
+            checkbox.checked = saved === 'true';
+            // チェック変更時にlocalStorageへ保存
+            checkbox.onchange = function() {
+              localStorage.setItem('editor_mushroomMove', checkbox.checked ? 'true' : 'false');
+            };
+          }
+        }
+      } else {
+        if (mushroomSettings) mushroomSettings.style.display = 'none';
+      }
+
+      // 既存の設定UIを消す
+      let old = document.getElementById('blockDetailSettings');
+      if (old) old.remove();
+
+      // 設定UI追加
+      const settings = document.createElement('div');
+      settings.id = 'blockDetailSettings';
+      settings.style.display = 'flex';
+      settings.style.flexDirection = 'column';
+      settings.style.marginLeft = '16px';
+      settings.style.gap = '8px';
+
+      // --- 動く敵（棘）専用クリック切り替えUI ---
+      if (blockId === 9 && window.lastDetailRowCol) {
+        // --- ここから説明文を追加 ---
+        const desc = document.createElement('div');
+        desc.style.fontSize = '15px';
+        desc.style.marginBottom = '6px';
+        desc.innerHTML = '<span style="color:#ff4136;font-weight:bold;">🟥 赤：死亡判定（触れると死ぬ）</span><br><span style="color:#2ecc40;font-weight:bold;">🟩 緑：当たり判定（安全・押し戻し・乗れる）</span><br><span style="color:#333;">クリックで切り替え</span>';
+        settings.appendChild(desc);
+        // --- ここまで説明文 ---
+        if (!window.enemyProps) window.enemyProps = {};
+        const key = window.lastDetailRowCol;
+        if (!window.enemyProps[key]) {
+          window.enemyProps[key] = {
+            hitTop: false,
+            hitSide: false,
+            hitBottom: false,
+            deathTop: true,
+            deathSide: true,
+            deathBottom: true
+          };
+        }
+        if (!window.enemyDirs) window.enemyDirs = {};
+        if (window.enemyDirs[key] === undefined) window.enemyDirs[key] = 1;
+        const props = window.enemyProps[key];
+        
+        // 画像の周りにクリックボタンを配置するラッパー
+        const wrap = document.createElement('div');
+        wrap.style.display = 'grid';
+        wrap.style.gridTemplateRows = '32px 48px 32px';
+        wrap.style.gridTemplateColumns = '48px 48px 48px';
+        wrap.style.gap = '2px';
+        wrap.style.alignItems = 'center';
+        wrap.style.justifyItems = 'center';
+        wrap.style.marginBottom = '8px';
+        
+        // 状態を切り替える関数
+        function toggleState(direction) {
+          const currentState = {
+            death: props[`death${direction}`],
+            hit: props[`hit${direction}`]
+          };
+          
+          // 状態を切り替え：死亡判定 → 当たり判定 → 死亡判定
+          if (currentState.death && !currentState.hit) {
+            // 死亡判定ON → 当たり判定ON
+            props[`death${direction}`] = false;
+            props[`hit${direction}`] = true;
+          } else {
+            // 当たり判定ON → 死亡判定ON
+            props[`death${direction}`] = true;
+            props[`hit${direction}`] = false;
+          }
+          
+          saveMapState();
+          draw();
+          updateButtons(); // ボタンの表示を更新
+        }
+        
+        // ボタンの表示を更新する関数
+        function updateButtons() {
+          // 上ボタン
+          const topBtn = document.getElementById('topBtn');
+          if (topBtn) {
+            if (props.deathTop) {
+              topBtn.style.backgroundColor = '#ff4136';
+              topBtn.textContent = '🟥';
+              topBtn.title = '上:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitTop) {
+              topBtn.style.backgroundColor = '#2ecc40';
+              topBtn.textContent = '🟩';
+              topBtn.title = '上:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 左ボタン
+          const leftBtn = document.getElementById('leftBtn');
+          if (leftBtn) {
+            if (props.deathSide) {
+              leftBtn.style.backgroundColor = '#ff4136';
+              leftBtn.textContent = '🟥';
+              leftBtn.title = '左:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitSide) {
+              leftBtn.style.backgroundColor = '#2ecc40';
+              leftBtn.textContent = '🟩';
+              leftBtn.title = '左:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 右ボタン
+          const rightBtn = document.getElementById('rightBtn');
+          if (rightBtn) {
+            if (props.deathSide) {
+              rightBtn.style.backgroundColor = '#ff4136';
+              rightBtn.textContent = '🟥';
+              rightBtn.title = '右:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitSide) {
+              rightBtn.style.backgroundColor = '#2ecc40';
+              rightBtn.textContent = '🟩';
+              rightBtn.title = '右:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+          
+          // 下ボタン
+          const bottomBtn = document.getElementById('bottomBtn');
+          if (bottomBtn) {
+            if (props.deathBottom) {
+              bottomBtn.style.backgroundColor = '#ff4136';
+              bottomBtn.textContent = '🟥';
+              bottomBtn.title = '下:死亡判定ON（クリックで当たり判定に変更）';
+            } else if (props.hitBottom) {
+              bottomBtn.style.backgroundColor = '#2ecc40';
+              bottomBtn.textContent = '🟩';
+              bottomBtn.title = '下:当たり判定ON（クリックで死亡判定に変更）';
+            }
+          }
+        }
+        
+        // 上ボタン
+        const topBtn = document.createElement('button');
+        topBtn.id = 'topBtn';
+        topBtn.style.width = '32px';
+        topBtn.style.height = '32px';
+        topBtn.style.border = '2px solid #333';
+        topBtn.style.borderRadius = '4px';
+        topBtn.style.cursor = 'pointer';
+        topBtn.style.fontSize = '16px';
+        topBtn.onclick = () => toggleState('Top');
+        wrap.appendChild(document.createElement('span'));
+        wrap.appendChild(topBtn);
+        wrap.appendChild(document.createElement('span'));
+        
+        // 左ボタン
+        const leftBtn = document.createElement('button');
+        leftBtn.id = 'leftBtn';
+        leftBtn.style.width = '32px';
+        leftBtn.style.height = '32px';
+        leftBtn.style.border = '2px solid #333';
+        leftBtn.style.borderRadius = '4px';
+        leftBtn.style.cursor = 'pointer';
+        leftBtn.style.fontSize = '16px';
+        leftBtn.onclick = () => toggleState('Side');
+        wrap.appendChild(leftBtn);
+        
+        // 画像
+        const imgClone = img.cloneNode(true);
+        imgClone.style.margin = '0';
+        wrap.appendChild(imgClone);
+        
+        // 右ボタン
+        const rightBtn = document.createElement('button');
+        rightBtn.id = 'rightBtn';
+        rightBtn.style.width = '32px';
+        rightBtn.style.height = '32px';
+        rightBtn.style.border = '2px solid #333';
+        rightBtn.style.borderRadius = '4px';
+        rightBtn.style.cursor = 'pointer';
+        rightBtn.style.fontSize = '16px';
+        rightBtn.onclick = () => toggleState('Side');
+        wrap.appendChild(rightBtn);
+        
+        // 下ボタン
+        const bottomBtn = document.createElement('button');
+        bottomBtn.id = 'bottomBtn';
+        bottomBtn.style.width = '32px';
+        bottomBtn.style.height = '32px';
+        bottomBtn.style.border = '2px solid #333';
+        bottomBtn.style.borderRadius = '4px';
+        bottomBtn.style.cursor = 'pointer';
+        bottomBtn.style.fontSize = '16px';
+        bottomBtn.onclick = () => toggleState('Bottom');
+        wrap.appendChild(document.createElement('span'));
+        wrap.appendChild(bottomBtn);
+        wrap.appendChild(document.createElement('span'));
+        
+        settings.appendChild(wrap);
+        
+        // 初期表示を設定
+        updateButtons();
+        
+        // --- 方向スライダー ---
+        const dirLabel = document.createElement('label');
+        dirLabel.textContent = '移動方向:';
+        dirLabel.style.marginTop = '8px';
+        dirLabel.style.display = 'flex';
+        dirLabel.style.alignItems = 'center';
+        const dirSlider = document.createElement('input');
+        dirSlider.type = 'range';
+        dirSlider.min = -1;
+        dirSlider.max = 1;
+        dirSlider.step = 2;
+        dirSlider.value = window.enemyDirs[key];
+        dirSlider.style.width = '80px';
+        const dirText = document.createElement('span');
+        dirText.textContent = (window.enemyDirs[key] == 1 ? '→' : '←');
+        dirSlider.oninput = function() {
+          window.enemyDirs[key] = parseInt(this.value);
+          dirText.textContent = (window.enemyDirs[key] == 1 ? '→' : '←');
+          saveMapState();
+          draw();
+        };
+        dirLabel.appendChild(dirSlider);
+        dirLabel.appendChild(dirText);
+        settings.appendChild(dirLabel);
+      }
+      // --- トランポリン角度（スライダー: 0-359） ---
+      if (blockId === 7 && window.lastDetailRowCol) {
+        const key = window.lastDetailRowCol;
+        let angle = window.trampolineAngles[key] || 0;
+        
+        // 説明文を追加
+        const desc = document.createElement('div');
+        desc.style.fontSize = '14px';
+        desc.style.marginBottom = '8px';
+        desc.style.color = '#666';
+        desc.innerHTML = '角度: <b>0°=上（デフォルト）</b>, 90°=右, 180°=下, 270°=左';
+        settings.appendChild(desc);
+        
+        const label = document.createElement('label');
+        label.textContent = '角度:';
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '8px';
+        
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0;
+        slider.max = 359;
+        slider.step = 0.5; // より細かい角度調整
+        slider.value = angle;
+        slider.style.width = '120px';
+        
+        // 新しくトランポリンを置いた場合の初期化
+        if (window.trampolineAngles[key] === undefined) {
+          window.trampolineAngles[key] = 0; // デフォルトは上向き（0°）
+          angle = 0;
+          slider.value = 0;
+        }
+        
+        const valueText = document.createElement('span');
+        valueText.textContent = angle.toFixed(1) + '°';
+        valueText.style.minWidth = '50px';
+        
+        // 方向矢印を追加
+        const directionArrow = document.createElement('span');
+        directionArrow.style.fontSize = '16px';
+        directionArrow.style.fontWeight = 'bold';
+        directionArrow.style.color = '#4466ff';
+        
+        function updateDirectionArrow(angle) {
+          if (angle >= 315 || angle < 45) directionArrow.textContent = '→'; // 右
+          else if (angle >= 45 && angle < 135) directionArrow.textContent = '↓'; // 下
+          else if (angle >= 135 && angle < 225) directionArrow.textContent = '←'; // 左
+          else directionArrow.textContent = '↑'; // 上
+        }
+        updateDirectionArrow(angle);
+        
+        slider.oninput = function() {
+          const newAngle = parseFloat(this.value);
+          valueText.textContent = newAngle.toFixed(1) + '°';
+          updateDirectionArrow(newAngle);
+          window.trampolineAngles[key] = newAngle;
+          drawTrajectoryPreview(newAngle);
+          saveMapState();
+          draw();
+        };
+        
+        label.appendChild(slider);
+        label.appendChild(valueText);
+        label.appendChild(directionArrow);
+        settings.appendChild(label);
+        
+        // 軌道プレビュー
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = 120;
+        previewCanvas.height = 80;
+        previewCanvas.style.border = '1px solid #ccc';
+        previewCanvas.style.marginTop = '8px';
+        previewCanvas.style.backgroundColor = '#f0f0f0';
+        
+        // 軌道プレビュー関数（角度と力の両方に対応）
+        function drawTrajectoryPreview(angle, power = window.trampolinePowers[key] || 2.2) {
+          const ctx = previewCanvas.getContext('2d');
+          ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+          
+          // トランポリン位置（中心）
+          const centerX = previewCanvas.width / 2;
+          const centerY = previewCanvas.height - 10;
+          
+          // 軌道計算（ゲームと同じ計算）
+          const rad = (angle - 90) * Math.PI / 180;
+          const basePower = Math.abs(-9) * power * 1.1; // 1.1倍の追加ブースト
+          
+          // 角度に応じた軌道調整（ゲームと同じ計算）
+          let powerMultiplier = 1.0;
+          let horizontalMultiplier = 1.0;
+          let verticalMultiplier = 1.0;
+          
+          // 角度範囲ごとの軌道調整
+          if (angle >= 315 || angle < 45) {
+            horizontalMultiplier = 1.2;
+            verticalMultiplier = 0.8;
+          } else if (angle >= 45 && angle < 135) {
+            horizontalMultiplier = 0.6;
+            verticalMultiplier = 1.4;
+          } else if (angle >= 135 && angle < 225) {
+            horizontalMultiplier = 1.2;
+            verticalMultiplier = 0.8;
+          } else {
+            horizontalMultiplier = 0.6;
+            verticalMultiplier = 1.4;
+          }
+          
+          // 細かい角度調整
+          const angleMod = angle % 90;
+          if (angleMod > 0 && angleMod < 90) {
+            const diagonalMultiplier = 0.8 + (angleMod / 90) * 0.4;
+            powerMultiplier = diagonalMultiplier;
+          }
+          
+          const finalPower = basePower * powerMultiplier;
+          const initialVx = Math.cos(rad) * finalPower * horizontalMultiplier;
+          const initialVy = Math.sin(rad) * finalPower * verticalMultiplier;
+          
+          // 本番と同じ物理演算で軌道を計算
+          let x = centerX;
+          let y = centerY;
+          let vx = initialVx;
+          let vy = initialVy;
+          const gravity = 0.01; // 0.3 → 0.01 に大幅に減らして超高空飛行
+          const airResistance = 0.999; // 0.99 → 0.999 に変更して空気抵抗を最小限に
+          const maxFallSpeed = 50; // 15 → 50 に上げて超高速落下
+          ctx.strokeStyle = '#4466ff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          for (let frame = 0; frame < 1000; frame++) { // 超長距離軌道
+            vx *= airResistance;
+            vy += gravity;
+            if (vy > maxFallSpeed) vy = maxFallSpeed;
+            x += vx;
+            y += vy;
+            ctx.lineTo(x, y);
+            // 地面に着地したら終了（より正確な判定）
+            if (y > previewCanvas.height - 10) break;
+          }
+          
+          // トランポリンを描画
+          const trampolinePreviewImg = new Image();
+          trampolinePreviewImg.src = window.ASSETS_BASE64["trampoline.png"];
+          
+          if (trampolinePreviewImg.complete && trampolinePreviewImg.naturalWidth > 0) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.drawImage(trampolinePreviewImg, -16, -12, 32, 24);
+            ctx.restore();
+          } else {
+            // 画像が未ロードならonloadで再描画
+            trampolinePreviewImg.onload = () => drawTrajectoryPreview(angle, power);
+            ctx.fillStyle = '#ff6b35';
+            ctx.fillRect(centerX - 8, centerY - 4, 16, 8);
+          }
+          
+          // 角度線を描画
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(centerX + Math.cos(rad) * 15, centerY + Math.sin(rad) * 15);
+          ctx.stroke();
+        }
+        
+        // 初期プレビューを描画
+        drawTrajectoryPreview(angle, window.trampolinePowers[key] || 2.2);
+        
+        slider.oninput = function() {
+          const newAngle = parseFloat(this.value);
+          valueText.textContent = newAngle.toFixed(1) + '°';
+          updateDirectionArrow(newAngle);
+          window.trampolineAngles[key] = newAngle;
+          drawTrajectoryPreview(newAngle, window.trampolinePowers[key] || 2.2);
+          saveMapState();
+          draw();
+        };
+        
+        settings.appendChild(previewCanvas);
+        
+        // --- トランポリン力（スライダー: 0.5-3.0） ---
+        const powerLabel = document.createElement('label');
+        powerLabel.textContent = '飛ぶ力:';
+        powerLabel.style.display = 'flex';
+        powerLabel.style.alignItems = 'center';
+        powerLabel.style.gap = '8px';
+        powerLabel.style.marginTop = '12px';
+        
+        const powerSlider = document.createElement('input');
+        powerSlider.type = 'range';
+        powerSlider.min = 0.5;
+        powerSlider.max = 3.0;
+        powerSlider.step = 0.1;
+        powerSlider.value = window.trampolinePowers[key] || 2.2;
+        powerSlider.style.width = '120px';
+        
+        // 新しくトランポリンを置いた場合の力の初期化
+        if (window.trampolinePowers[key] === undefined) {
+          window.trampolinePowers[key] = 2.2; // デフォルトは2.2倍
+          powerSlider.value = 2.2;
+        }
+        
+        const powerValueText = document.createElement('span');
+        powerValueText.textContent = (window.trampolinePowers[key] || 2.2).toFixed(1) + '倍';
+        powerValueText.style.minWidth = '50px';
+        
+        powerSlider.oninput = function() {
+          const newPower = parseFloat(this.value);
+          powerValueText.textContent = newPower.toFixed(1) + '倍';
+          window.trampolinePowers[key] = newPower;
+          drawTrajectoryPreview(angle, newPower);
+          saveMapState();
+          draw();
+        };
+        
+        powerLabel.appendChild(powerSlider);
+        powerLabel.appendChild(powerValueText);
+        settings.appendChild(powerLabel);
+        
+        // 軌道プレビューを力の設定にも対応させる
+        function drawTrajectoryPreview(angle, power = window.trampolinePowers[key] || 2.2) {
+          const ctx = previewCanvas.getContext('2d');
+          ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+          
+          // トランポリン位置（中心）
+          const centerX = previewCanvas.width / 2;
+          const centerY = previewCanvas.height - 10;
+          
+          // 軌道計算（ゲームと同じ計算）
+          const rad = (angle - 90) * Math.PI / 180;
+          const basePower = Math.abs(-9) * power * 1.1; // 1.1倍の追加ブースト
+          
+          // 角度に応じた軌道調整（ゲームと同じ計算）
+          let powerMultiplier = 1.0;
+          let horizontalMultiplier = 1.0;
+          let verticalMultiplier = 1.0;
+          
+          // 角度範囲ごとの軌道調整
+          if (angle >= 315 || angle < 45) {
+            horizontalMultiplier = 1.2;
+            verticalMultiplier = 0.8;
+          } else if (angle >= 45 && angle < 135) {
+            horizontalMultiplier = 0.6;
+            verticalMultiplier = 1.4;
+          } else if (angle >= 135 && angle < 225) {
+            horizontalMultiplier = 1.2;
+            verticalMultiplier = 0.8;
+          } else {
+            horizontalMultiplier = 0.6;
+            verticalMultiplier = 1.4;
+          }
+          
+          // 細かい角度調整
+          const angleMod = angle % 90;
+          if (angleMod > 0 && angleMod < 90) {
+            const diagonalMultiplier = 0.8 + (angleMod / 90) * 0.4;
+            powerMultiplier = diagonalMultiplier;
+          }
+          
+          const finalPower = basePower * powerMultiplier;
+          const initialVx = Math.cos(rad) * finalPower * horizontalMultiplier;
+          const initialVy = Math.sin(rad) * finalPower * verticalMultiplier;
+          
+          // 本番と同じ物理演算で軌道を計算
+          let x = centerX;
+          let y = centerY;
+          let vx = initialVx;
+          let vy = initialVy;
+          const gravity = 0.01; // 0.3 → 0.01 に大幅に減らして超高空飛行
+          const airResistance = 0.999; // 0.99 → 0.999 に変更して空気抵抗を最小限に
+          const maxFallSpeed = 50; // 15 → 50 に上げて超高速落下
+          ctx.strokeStyle = '#4466ff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          for (let frame = 0; frame < 1000; frame++) { // 超長距離軌道
+            vx *= airResistance;
+            vy += gravity;
+            if (vy > maxFallSpeed) vy = maxFallSpeed;
+            x += vx;
+            y += vy;
+            ctx.lineTo(x, y);
+            // 地面に着地したら終了（より正確な判定）
+            if (y > previewCanvas.height - 10) break;
+          }
+          
+          // トランポリンを描画
+          const trampolinePreviewImg2 = new Image();
+          trampolinePreviewImg2.src = window.ASSETS_BASE64["trampoline.png"];
+          
+          if (trampolinePreviewImg2.complete && trampolinePreviewImg2.naturalWidth > 0) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.drawImage(trampolinePreviewImg2, -16, -12, 32, 24);
+            ctx.restore();
+          } else {
+            // 画像が未ロードならonloadで再描画
+            trampolinePreviewImg2.onload = () => drawTrajectoryPreview(angle, power);
+            ctx.fillStyle = '#ff6b35';
+            ctx.fillRect(centerX - 8, centerY - 4, 16, 8);
+          }
+          
+          // 角度線を描画
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(centerX + Math.cos(rad) * 15, centerY + Math.sin(rad) * 15);
+          ctx.stroke();
+        }
+        
+        // 初期プレビューを描画
+        drawTrajectoryPreview(angle, window.trampolinePowers[key] || 2.2);
+      }
+      popup.appendChild(settings);
+      popup.style.display = 'flex';
+    }
+
+        // --- canvasクリック時、動く敵やきのこの方向・角度変更処理を無効化 ---
+    if (window.canvas) {
+      window.canvas.addEventListener('click', function(e) {
+        // キャンバスの実際のサイズと表示サイズを取得
+        const rect = window.canvas.getBoundingClientRect();
+        
+        // マウス位置をキャンバス座標系に変換
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // キャンバスの表示サイズと実際のサイズの比率を計算
+        const scaleX = window.canvas.width / rect.width;
+        const scaleY = window.canvas.height / rect.height;
+        
+        // スケールを考慮してキャンバス座標を計算
+        const canvasX = mouseX * scaleX;
+        const canvasY = mouseY * scaleY;
+        
+        // カメラ位置を考慮してワールド座標を計算
+        const worldX = canvasX + camera.x;
+        const worldY = canvasY + camera.y;
+        
+        // タイル座標を計算
+        const col = Math.floor(worldX / TILE_SIZE);
+        const row = Math.floor(worldY / TILE_SIZE);
+      if (col >= 0 && col < cols && row >= 0 && row < rows) {
+          if (isHandMode) {
+            const blockId = map[row][col];
+            if (blockId !== 0) {
+              window.lastDetailRowCol = `${row},${col}`;
+              showBlockDetail(blockId);
+          return;
+        }
+          }
+          // 方向・角度変更処理は削除
+      }
+    });
+    }
+
+    // clearButtonのアイコンをclear.pngに
+    const clearButton = document.getElementById("clearButton");
+    clearButton.innerHTML = '';
+    clearButton.style.backgroundImage = `url(${images[32].src})`;
+    clearButton.style.backgroundSize = 'cover';
+    clearButton.style.backgroundRepeat = 'no-repeat';
+    clearButton.style.backgroundPosition = 'center';
+    clearButton.style.width = '50px';
+    clearButton.style.height = '50px';
+    
+    // 軌道表示モードの追加
+    window.showTrajectories = false;
+    
+    // F3キーで軌道表示切り替え
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'p') {
+        e.preventDefault();
+        window.showTrajectories = !window.showTrajectories;
+        console.log('軌道表示モード:', window.showTrajectories ? 'ON' : 'OFF');
+        updateTrajectoryStatus(); // 状態表示を更新
+        draw(); // 再描画
+      }
+    });
+    
+    // 軌道描画関数
+    function drawTrajectories() {
+      if (!window.showTrajectories) return;
+      
+      const ctx = window.canvas.getContext('2d');
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, -camera.x, -camera.y);
+      
+      // 動く敵の方向を描画
+      if (window.enemyDirs) {
+        for (const key in window.enemyDirs) {
+          const [row, col] = key.split(',').map(Number);
+          const direction = window.enemyDirs[key];
+          const x = col * TILE_SIZE + TILE_SIZE / 2;
+          const y = row * TILE_SIZE + TILE_SIZE / 2;
+          
+          // 方向矢印を描画
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          
+          let endX = x, endY = y;
+          switch (direction) {
+            case 'left':
+              endX = x - 20;
+              break;
+            case 'right':
+              endX = x + 20;
+              break;
+            case 'up':
+              endY = y - 20;
+              break;
+            case 'down':
+              endY = y + 20;
+              break;
+          }
+          
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+          
+          // 矢印の先端を描画
+          ctx.fillStyle = '#ff0000';
+          ctx.beginPath();
+          if (direction === 'left' || direction === 'right') {
+            ctx.moveTo(endX + (direction === 'left' ? 5 : -5), endY - 3);
+            ctx.lineTo(endX, endY);
+            ctx.lineTo(endX + (direction === 'left' ? 5 : -5), endY + 3);
+          } else {
+            ctx.moveTo(endX - 3, endY + (direction === 'up' ? 5 : -5));
+            ctx.lineTo(endX, endY);
+            ctx.lineTo(endX + 3, endY + (direction === 'up' ? 5 : -5));
+          }
+          ctx.fill();
+        }
+      }
+      
+             // トランポリンの軌道を描画
+       if (window.trampolineAngles) {
+         for (const key in window.trampolineAngles) {
+           const [row, col] = key.split(',').map(Number);
+           // トランポリンが現存しない場合は軌道を描画しない
+           if (!map[row] || map[row][col] !== 7) continue;
+           const angle = window.trampolineAngles[key];
+           const power = window.trampolinePowers[key] || 1.7;
+           const x = col * TILE_SIZE + TILE_SIZE / 2;
+           const y = row * TILE_SIZE + TILE_SIZE / 2;
+           
+           // プレイヤーの初期位置（トランポリンの上）
+           const playerStartX = x;
+           const playerStartY = y - TILE_SIZE; // トランポリンの1タイル上
+           
+           // 軌道計算（ゲームと同じ計算）
+           const rad = (angle - 90) * Math.PI / 180;
+           const basePower = Math.abs(-9) * power * 1.1; // 1.1倍の追加ブースト
+           
+           // 角度に応じた軌道調整
+           let powerMultiplier = 1.0;
+           let horizontalMultiplier = 1.0;
+           let verticalMultiplier = 1.0;
+           
+           if (angle >= 315 || angle < 45) {
+             horizontalMultiplier = 1.2;
+             verticalMultiplier = 0.8;
+           } else if (angle >= 45 && angle < 135) {
+             horizontalMultiplier = 0.6;
+             verticalMultiplier = 1.4;
+           } else if (angle >= 135 && angle < 225) {
+             horizontalMultiplier = 1.2;
+             verticalMultiplier = 0.8;
+           } else {
+             horizontalMultiplier = 0.6;
+             verticalMultiplier = 1.4;
+           }
+           
+           const angleMod = angle % 90;
+           if (angleMod > 0 && angleMod < 90) {
+             const diagonalMultiplier = 0.8 + (angleMod / 90) * 0.4;
+             powerMultiplier = diagonalMultiplier;
+           }
+           
+           const finalPower = basePower * powerMultiplier;
+           const initialVx = Math.cos(rad) * finalPower * horizontalMultiplier;
+           const initialVy = Math.sin(rad) * finalPower * verticalMultiplier;
+           
+           // 軌道のポイントを計算して描画（地面に着地するまで）
+           let trajectoryPoints = [];
+           
+           // 物理パラメータを先に宣言
+           const gravity = 0.5;
+           const airResistance = 0.98;
+           const maxFallSpeed = 12;
+           
+           // フレームごとに速度・座標を更新する軌道計算
+           let trajectoryX = playerStartX;
+           let trajectoryY = playerStartY;
+           let vx = initialVx;
+           let vy = initialVy;
+           
+           ctx.strokeStyle = '#4466ff';
+           ctx.lineWidth = 3;
+           ctx.setLineDash([8, 4]);
+           ctx.beginPath();
+           ctx.moveTo(trajectoryX, trajectoryY);
+           
+           for (let frame = 0; frame < 1000; frame++) {
+             vx *= airResistance;
+             vy += gravity;
+             if (vy > maxFallSpeed) vy = maxFallSpeed;
+             trajectoryX += vx;
+             trajectoryY += vy;
+             trajectoryPoints.push({ x: trajectoryX, y: trajectoryY });
+             ctx.lineTo(trajectoryX, trajectoryY);
+             
+             // 地面に着地したら終了（地形判定）
+             const tileBelow = typeof getTile === 'function' ? getTile(trajectoryX, trajectoryY + 1) : 0;
+             // 当たり判定のないブロックを除外: 0(空), 6(毒), 7(トランポリン), 8(ハシゴ), 10(スポーン), 15(コイン), 16(チェックポイント), 17(ゴール), 19(ダミー)
+             if (tileBelow !== 0 && tileBelow !== 6 && tileBelow !== 7 && tileBelow !== 8 && tileBelow !== 10 && tileBelow !== 15 && tileBelow !== 16 && tileBelow !== 17 && tileBelow !== 19) {
+               break;
+             }
+           }
+           
+           ctx.stroke();
+           ctx.setLineDash([]);
+           
+           // 軌道のポイントを小さな円で表示
+           ctx.fillStyle = '#4466ff';
+           for (let i = 0; i < trajectoryPoints.length; i += 5) { // 5フレームごとにポイントを表示
+             const point = trajectoryPoints[i];
+             ctx.beginPath();
+             ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+             ctx.fill();
+           }
+           
+           // 着地点を赤い円で表示
+           if (trajectoryPoints.length > 0) {
+             const landingPoint = trajectoryPoints[trajectoryPoints.length - 1];
+             ctx.fillStyle = '#ff0000';
+             ctx.beginPath();
+             ctx.arc(landingPoint.x, landingPoint.y, 6, 0, Math.PI * 2);
+             ctx.fill();
+             
+             // 着地点の座標を表示
+             ctx.fillStyle = '#ff0000';
+             ctx.font = '10px Arial';
+             ctx.fillText(`着地: (${Math.round(landingPoint.x)}, ${Math.round(landingPoint.y)})`, 
+                         landingPoint.x + 10, landingPoint.y - 10);
+           }
+           
+           // プレイヤーの開始位置を緑の円で表示
+           ctx.fillStyle = '#00ff00';
+           ctx.beginPath();
+           ctx.arc(playerStartX, playerStartY, 4, 0, Math.PI * 2);
+           ctx.fill();
+           
+           // 角度線を描画
+           ctx.strokeStyle = '#ff6b35';
+           ctx.lineWidth = 2;
+           ctx.beginPath();
+           ctx.moveTo(x, y);
+           ctx.lineTo(x + Math.cos(rad) * 25, y + Math.sin(rad) * 25);
+           ctx.stroke();
+           
+           // 角度と力のテキストを描画
+           ctx.fillStyle = '#ff6b35';
+           ctx.font = '12px Arial';
+           ctx.fillText(`${angle.toFixed(1)}° / ${power.toFixed(1)}倍`, x + 30, y - 10);
+         }
+       }
+      
+      ctx.restore();
+    }
+    
+    // 既存のdraw関数を拡張
+    const originalDraw = window.draw;
+    window.draw = function() {
+      if (originalDraw) originalDraw();
+      drawTrajectories();
+    };
+    
+    // 軌道表示モードの状態を表示
+    function updateTrajectoryStatus() {
+      const statusDiv = document.getElementById('trajectoryStatus');
+      if (!statusDiv) {
+        const div = document.createElement('div');
+        div.id = 'trajectoryStatus';
+        div.style.cssText = `
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: rgba(0,0,0,0.7);
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          z-index: 1000;
+          display: none;
+        `;
+        document.body.appendChild(div);
+      }
+      
+      const div = document.getElementById('trajectoryStatus');
+      if (window.showTrajectories) {
+        div.textContent = '軌道表示: ON (PでOFF)';
+        div.style.display = 'block';
+      } else {
+        div.style.display = 'none';
+      }
+    }
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    // 初期状態を設定
+    updateTrajectoryStatus();
+    
+
+
+  </script>
+</body>
+</html>

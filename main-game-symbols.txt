@@ -1,0 +1,473 @@
+// [2025/09/06] Mushroom jump behavior setting is handled in editor-common.js.
+// The setting allows configuration of forced trajectory or movement during jump.
+// No direct logic here; see editor-common.js for implementation details.
+1:const urlParams = new URLSearchParams(window.location.search);
+2:let slotName = urlParams.get("slot");
+6:const TILE_SIZE = 32;
+7:const SCALE = 2.0;
+8:const mapCols = 100;
+9:const mapRows = 20;
+10:const map = [];
+13:function loadMapFromStorage() {
+14:  const savedMap = localStorage.getItem("world_" + slotName);
+17:    const parsed = JSON.parse(savedMap);
+39:  for (let r = 0; r < mapRows; r++) {
+41:    for (let c = 0; c < mapCols; c++) map[r][c] = 0;
+51:function loadColorBlockSettings() {
+52:  const saved = localStorage.getItem('colorBlockSettings');
+62:function hexToRgb(hex) {
+63:  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+71:function rgbToHue(rgb) {
+72:  const { r, g, b } = rgb;
+73:  const max = Math.max(r, g, b);
+74:  const min = Math.min(r, g, b);
+75:  let h = 0;
+80:    const d = max - min;
+92:const groundImg = new Image(); groundImg.src = window.ASSETS_BASE64["ground.png"];
+93:const dirtImg = new Image();   dirtImg.src = window.ASSETS_BASE64["dirt.png"];
+94:const enemyImg = new Image();  enemyImg.src = window.ASSETS_BASE64["enemy.png"];
+95:const goalImg = new Image();   goalImg.src = window.ASSETS_BASE64["goal.png"];
+96:const stoneImg = new Image();     stoneImg.src = window.ASSETS_BASE64["stone.png"];
+97:const poisonImg = new Image();    poisonImg.src = window.ASSETS_BASE64["poison.png"];
+98:const trampolineImg = new Image();trampolineImg.src = window.ASSETS_BASE64["trampoline.png"];
+99:const ladderImg = new Image();    ladderImg.src = window.ASSETS_BASE64["ladder.png"];
+100:const enemyMoveImg1 = new Image(); enemyMoveImg1.src = window.ASSETS_BASE64["enemy-move1.png"];
+101:const enemyMoveImg2 = new Image(); enemyMoveImg2.src = window.ASSETS_BASE64["enemy-move2.png"];
+102:const deathScreenImg = new Image(); deathScreenImg.src = window.ASSETS_BASE64["death_screen.png"];
+103:const deathScreenFallImg = new Image(); deathScreenFallImg.src = window.ASSETS_BASE64["death_screen_fall.png"];
+104:const breakblockImg = new Image(); breakblockImg.src = window.ASSETS_BASE64["breakblock.png"];
+105:const breakableImg = breakblockImg; // breakable block
+106:const rail1Img = new Image(); rail1Img.src = window.ASSETS_BASE64["rail1.png"];
+107:const rail2Img = new Image(); rail2Img.src = window.ASSETS_BASE64["rail2.png"];
+108:const rail3Img = new Image(); rail3Img.src = window.ASSETS_BASE64["rail3.png"];
+109:const coinImg = new Image(); coinImg.src = window.ASSETS_BASE64["coin.png"];
+110:const checkpointImg = new Image(); checkpointImg.src = window.ASSETS_BASE64["checkpoint.png"];
+111:const goldgoalImg = new Image(); goldgoalImg.src = window.ASSETS_BASE64["goldgoal.png"];
+114:const colorBlockImages = [];
+115:for (let i = 0; i <= 10; i++) {
+116:    const img = new Image();
+125:const canvas = document.getElementById("gameCanvas");
+126:const ctx = canvas.getContext("2d");
+133:const playerImg = document.getElementById("player");
+134:const playerRun1Img = document.getElementById("player-run1");
+135:const playerRun2Img = document.getElementById("player-run2");
+136:const playerJump1Img = document.getElementById("player-jump1");
+137:const playerJump2Img = document.getElementById("player-jump2");
+147:const characterImages = {
+192:        const fallbackImages = characterImages.raft;
+204:const player = {
+209:const respawnPoint = { x: 100, y: 100 };
+227:    const images = characterImages[this.currentCharacter] || characterImages.raft;
+230:    const fallbackImages = characterImages.raft;
+241:    const now = performance.now();
+255:    const images = this.getCharacterImages();
+256:    let img;
+257:    const now = performance.now();
+260:      const elapsed = now - this.jumpFrameStart;
+268:        const centerX = x + width / 2;
+269:        const bottomY = y + height;
+270:        const nearGround =
+292:const animator = new PlayerAnimator();
+294:const keys = {};
+295:let cameraX = 0, cameraY = 0;
+296:let facingLeft = false;
+297:let isMoving = false;
+298:let isDead = false, deathStartTime = 0, useFallDeathScreen = false, showDeathScreen = false;
+299:let cameraLockX = 0, cameraLockY = 0;
+300:let deathFrozen = false;
+301:let scoa = 0;
+304:let enemyObjs = [];
+305:function initEnemies() {
+307:  for (let row = 0; row < map.length; row++) {
+308:    for (let col = 0; col < map[0].length; col++) {
+311:        let dir = 1;
+330:function updateEnemies() {
+336:  for (const enemy of enemyObjs) {
+344:    const enemyBottom = enemy.y + TILE_SIZE;
+345:    const enemyCol = Math.floor(enemy.x / TILE_SIZE);
+346:    const enemyRow = Math.floor(enemyBottom / TILE_SIZE);
+349:    let onGround = false;
+351:      const tileBelow = map[enemyRow][enemyCol];
+370:    const aheadX = enemy.x + (enemy.dir > 0 ? TILE_SIZE : -2);
+371:    const footY = enemy.y + TILE_SIZE;
+372:    const tileAhead = getTile(aheadX, enemy.y);
+373:    const tileBelowAhead = getTile(aheadX, footY);
+388:function drawEnemies() {
+394:  for (const enemy of enemyObjs) {
+397:    const frame = Math.floor((enemy.animTimer || 0) / 10) % 2;
+398:    const img = frame === 0 ? enemyMoveImg1 : enemyMoveImg2;
+403:const deathGifEl = document.getElementById("deathGif");
+406:function getTile(x, y) {
+407:  const col = Math.floor(x / TILE_SIZE);
+408:  const row = Math.floor(y / TILE_SIZE);
+414:function checkCollision(x, y, width, height) {
+415:  const left = Math.floor(x / TILE_SIZE);
+416:  const right = Math.floor((x + width) / TILE_SIZE);
+417:  const top = Math.floor(y / TILE_SIZE);
+418:  const bottom = Math.floor((y + height) / TILE_SIZE);
+420:  for (let row = top; row <= bottom; row++) {
+421:    for (let col = left; col <= right; col++) {
+423:        const tile = map[row][col];
+450:function diePlayer(reason) {
+467:  for (let key in keys) keys[key] = false;
+472:const spawn = findSpawn();
+483:const playerCol = Math.floor(player.x / TILE_SIZE);
+484:const playerRow = Math.floor(player.y / TILE_SIZE);
+486:for (let r = playerRow - 1; r <= playerRow + 2; r++) {
+487:  let rowInfo = "";
+488:  for (let c = playerCol - 1; c <= playerCol + 2; c++) {
+490:      const tile = map[r][c];
+491:      const isDummy = tile === 19;
+492:      const overlay = isDummy && window.dummyOverlays ? window.dummyOverlays[`${r},${c}`] : null;
+507:let targetScale = SCALE;
+510:function loadGameSettings() {
+511:  const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+512:  const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+514:  const defaults = {
+522:  const defaultKeys = {
+546:  const selectedCharacter = settings.character || defaults.character;
+586:function update() {
+590:  const leftKey = window.gameKeys?.left || 'a';
+591:  const rightKey = window.gameKeys?.right || 'd';
+605:  const nextX = player.x + player.vx;
+606:  const collisionX = checkCollision(nextX, player.y, player.width, player.height);
+614:  const ladderFootX = player.x + player.width / 2;
+615:  const ladderFootY = player.y + player.height + 1;
+616:  const ladderTileBelow = getTile(ladderFootX, ladderFootY);
+617:  const stopKey = window.gameKeys?.stop || 'Shift';
+622:  const nextY = player.y + player.vy;
+623:  const collisionY = checkCollision(player.x, nextY, player.width, player.height);
+633:  const underTile = getTile(player.x + player.width / 2, player.y + player.height + 2);
+634:  const nowTile = getTile(player.x + player.width / 2, player.y + player.height / 2);
+642:    const centerOffsetX = 0.0; // 0.0:完全中心, 0.1:少し左寄り
+645:    const mapPixelHeight = map.length * TILE_SIZE;
+646:    const viewHeight = canvas.height / window.dynamicScale;
+647:    const maxCameraY = mapPixelHeight - viewHeight;
+661:  let onEnemy = false;
+662:  let enemiesToRemove = []; // 削除する敵のインデックスを保存
+670:  for (let i = 0; i < enemyObjs.length; i++) {
+671:    const enemy = enemyObjs[i];
+678:    const enemyCol = Math.round(enemy.x / TILE_SIZE);
+679:    const enemyRow = Math.round(enemy.y / TILE_SIZE);
+680:    const key = `${enemyRow},${enemyCol}`;
+681:    const props = (window.enemyProps && window.enemyProps[key]) ? window.enemyProps[key] : window.defaultEnemyProps;
+683:    const px1 = player.x, px2 = player.x + player.width;
+684:    const py1 = player.y, py2 = player.y + player.height;
+685:    const ex1 = enemy.x, ex2 = enemy.x + TILE_SIZE;
+686:    const ey1 = enemy.y, ey2 = enemy.y + TILE_SIZE;
+688:    const isTopDeath = px2 > ex1 && px1 < ex2 && Math.abs(py2 - ey1) < 4 && player.vy >= 0;
+689:    const isBottomDeath = px2 > ex1 && px1 < ex2 && Math.abs(py1 - ey2) < 4 && player.vy < 0;
+690:    const isSideDeath = py2 > ey1 + 6 && py1 < ey2 - 6 && ((Math.abs(px2 - ex1) < 3 && player.vx > 0) || (Math.abs(px1 - ex2) < 3 && player.vx < 0));
+692:    const isTopHit = px2 > ex1 && px1 < ex2 && Math.abs(py2 - ey1) < 9 && player.vy >= 0;
+693:    const isBottomHit = px2 > ex1 && px1 < ex2 && Math.abs(py1 - ey2) < 9 && player.vy < 0;
+694:    const isSideHit = py2 > ey1 + 2 && py1 < ey2 - 2 && ((Math.abs(px2 - ex1) < 8 && player.vx > 0) || (Math.abs(px1 - ex2) < 8 && player.vx < 0));
+747:  for (let i = enemiesToRemove.length - 1; i >= 0; i--) {
+754:  const footX = player.x + player.width / 2;
+755:  const footY = player.y + player.height + 1;
+756:  const tileBelow = getTile(footX, footY);
+762:  const colBelow = Math.floor(footX / TILE_SIZE);
+763:  const rowBelow = Math.floor(footY / TILE_SIZE);
+765:    const key = rowBelow + "," + colBelow;
+771:  for (let row = 0; row < map.length; row++) {
+772:    for (let col = 0; col < map[0].length; col++) {
+774:        const key = row + "," + col;
+776:      const elapsed = performance.now() - window.breakTimers[key];
+794:  for (let i = window.fallingBreaks.length - 1; i >= 0; i--) {
+795:    const fb = window.fallingBreaks[i];
+798:    const nextRow = Math.floor((fb.y + TILE_SIZE) / TILE_SIZE);
+801:    let hitEnemy = false;
+802:    for (let j = enemyObjs.length - 1; j >= 0; j--) {
+803:      const enemy = enemyObjs[j];
+846:  for (let i = window.breakRespawns.length - 1; i >= 0; i--) {
+847:    const br = window.breakRespawns[i];
+859:  const playerBottom = player.y + player.height;
+860:  const playerCenterX = player.x + player.width / 2;
+863:  const tileBelowPlayer = getTile(playerCenterX, playerBottom + 1);
+870:  const trampolineRow = Math.floor(playerBottom / TILE_SIZE);
+871:  const trampolineCol = Math.floor(playerCenterX / TILE_SIZE);
+873:    const tile = map[trampolineRow][trampolineCol];
+875:      let angle = 270; // デフォルトは上方向
+879:      const rad = angle * Math.PI / 180;
+880:      const power = Math.abs(player.jumpPower) * 1.7;
+887:  const centerX = player.x + player.width / 2;
+888:  const centerY = player.y + player.height / 2;
+889:  const tileAtCenter = getTile(centerX, centerY);
+896:  const bodyX = player.x + player.width / 2;
+897:  const bodyY = player.y + player.height / 2;
+898:  const tileAtBody = getTile(bodyX, bodyY);
+902:    const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+903:    const downKey = window.gameKeys?.down || 's';
+904:    const stopKey = window.gameKeys?.stop || 'Shift';
+919:  const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+926:  const jumpKey = window.gameKeys?.jump || ' ';
+945:    const col = Math.floor(bodyX / TILE_SIZE);
+946:    const row = Math.floor(bodyY / TILE_SIZE);
+951:    const dist = Math.sqrt((player.x - window.lastCheckpointPos.x) ** 2 + (player.y - window.lastCheckpointPos.y) ** 2);
+960:  const fallThreshold = map.length * TILE_SIZE + 64;
+969:    for (let key in keys) keys[key] = false;
+979:    const col = Math.floor(bodyX / TILE_SIZE);
+980:    const row = Math.floor(bodyY / TILE_SIZE);
+986:    const col = Math.floor(bodyX / TILE_SIZE);
+987:    const row = Math.floor(bodyY / TILE_SIZE);
+995:    for (let r = 0; r < map.length; r++) {
+996:      for (let c = 0; c < map[0].length; c++) {
+999:          const tileAbove = map[r-1][c];
+1013:    const elapsed = performance.now() - deathStartTime;
+1042:function draw() {
+1048:  for (let row = 0; row < map.length; row++) {
+1049:    for (let col = 0; col < map[0].length; col++) {
+1050:      const tile = map[row][col];
+1051:      const x = col * TILE_SIZE;
+1052:      const y = row * TILE_SIZE;
+1055:        const left = col > 0 && map[row][col-1] >= 12 && map[row][col-1] <= 14;
+1069:    for (const fb of window.fallingBreaks) {
+1078:  for (let row = 0; row < map.length; row++) {
+1079:    for (let col = 0; col < map[0].length; col++) {
+1080:      const tile = map[row][col];
+1081:      const x = col * TILE_SIZE;
+1082:      const y = row * TILE_SIZE;
+1085:      let drawTile = tile;
+1104:        const colorIndex = drawTile - 20;
+1128:function gameLoop() {
+1158:function findSpawn() {
+1159:  for (let r = 0; r < map.length; r++) {
+1160:    for (let c = 0; c < map[0].length; c++) {
+1170:const oldThumbBtn = document.getElementById('saveThumbBtn');
+1173:const homeBtn = document.getElementById("backHomeBtn");
+1180:function saveMap() {
+1181:  const mapData = {
+1188:const urlParams = new URLSearchParams(window.location.search);
+1189:let slotName = urlParams.get("slot");
+1193:const TILE_SIZE = 32;
+1194:const SCALE = 2.0;
+1195:const mapCols = 100;
+1196:const mapRows = 20;
+1197:const map = [];
+1200:function loadMapFromStorage() {
+1201:  const savedMap = localStorage.getItem("world_" + slotName);
+1204:      const parsed = JSON.parse(savedMap);
+1226:  for (let r = 0; r < mapRows; r++) {
+1228:    for (let c = 0; c < mapCols; c++) map[r][c] = 0;
+1238:function loadColorBlockSettings() {
+1239:  const saved = localStorage.getItem('colorBlockSettings');
+1249:function hexToRgb(hex) {
+1250:  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+1258:function rgbToHue(rgb) {
+1259:  const { r, g, b } = rgb;
+1260:  const max = Math.max(r, g, b);
+1261:  const min = Math.min(r, g, b);
+1262:  let h = 0;
+1267:    const d = max - min;
+1279:const groundImg = new Image(); groundImg.src = window.ASSETS_BASE64["ground.png"];
+1280:const dirtImg = new Image();   dirtImg.src = window.ASSETS_BASE64["dirt.png"];
+1281:const enemyImg = new Image();  enemyImg.src = window.ASSETS_BASE64["enemy.png"];
+1282:const goalImg = new Image();   goalImg.src = window.ASSETS_BASE64["goal.png"];
+1283:const stoneImg = new Image();     stoneImg.src = window.ASSETS_BASE64["stone.png"];
+1284:const poisonImg = new Image();    poisonImg.src = window.ASSETS_BASE64["poison.png"];
+1285:const trampolineImg = new Image();trampolineImg.src = window.ASSETS_BASE64["trampoline.png"];
+1286:const ladderImg = new Image();    ladderImg.src = window.ASSETS_BASE64["ladder.png"];
+1287:const enemyMoveImg1 = new Image(); enemyMoveImg1.src = window.ASSETS_BASE64["enemy-move1.png"];
+1288:const enemyMoveImg2 = new Image(); enemyMoveImg2.src = window.ASSETS_BASE64["enemy-move2.png"];
+1289:const deathScreenImg = new Image(); deathScreenImg.src = window.ASSETS_BASE64["death_screen.png"];
+1290:const deathScreenFallImg = new Image(); deathScreenFallImg.src = window.ASSETS_BASE64["death_screen_fall.png"];
+1291:const breakblockImg = new Image(); breakblockImg.src = window.ASSETS_BASE64["breakblock.png"];
+1292:const breakableImg = breakblockImg; // breakable block
+1293:const rail1Img = new Image(); rail1Img.src = window.ASSETS_BASE64["rail1.png"];
+1294:const rail2Img = new Image(); rail2Img.src = window.ASSETS_BASE64["rail2.png"];
+1295:const rail3Img = new Image(); rail3Img.src = window.ASSETS_BASE64["rail3.png"];
+1296:const coinImg = new Image(); coinImg.src = window.ASSETS_BASE64["coin.png"];
+1297:const checkpointImg = new Image(); checkpointImg.src = window.ASSETS_BASE64["checkpoint.png"];
+1298:const goldgoalImg = new Image(); goldgoalImg.src = window.ASSETS_BASE64["goldgoal.png"];
+1301:const colorBlockImages = [];
+1302:for (let i = 0; i <= 10; i++) {
+1303:    const img = new Image();
+1312:const canvas = document.getElementById("gameCanvas");
+1313:const ctx = canvas.getContext("2d");
+1320:const playerImg = document.getElementById("player");
+1321:const playerRun1Img = document.getElementById("player-run1");
+1322:const playerRun2Img = document.getElementById("player-run2");
+1323:const playerJump1Img = document.getElementById("player-jump1");
+1324:const playerJump2Img = document.getElementById("player-jump2");
+1334:const characterImages = {
+1379:        const fallbackImages = characterImages.raft;
+1391:const player = {
+1396:const respawnPoint = { x: 100, y: 100 };
+1414:    const images = characterImages[this.currentCharacter] || characterImages.raft;
+1417:    const fallbackImages = characterImages.raft;
+1428:    const now = performance.now();
+1442:    const images = this.getCharacterImages();
+1443:    let img;
+1444:    const now = performance.now();
+1447:      const elapsed = now - this.jumpFrameStart;
+1455:        const centerX = x + width / 2;
+1456:        const bottomY = y + height;
+1457:        const nearGround =
+1479:const animator = new PlayerAnimator();
+1481:const keys = {};
+1482:let cameraX = 0, cameraY = 0;
+1483:let facingLeft = false;
+1484:let isMoving = false;
+1485:let isDead = false, deathStartTime = 0, useFallDeathScreen = false, showDeathScreen = false;
+1486:let cameraLockX = 0, cameraLockY = 0;
+1487:let deathFrozen = false;
+1488:let scoa = 0;
+1491:let enemyObjs = [];
+1492:function initEnemies() {
+1494:  for (let row = 0; row < map.length; row++) {
+1495:    for (let col = 0; col < map[0].length; col++) {
+1498:        let dir = 1;
+1517:function updateEnemies() {
+1523:  for (const enemy of enemyObjs) {
+1531:    const enemyBottom = enemy.y + TILE_SIZE;
+1532:    const enemyCol = Math.floor(enemy.x / TILE_SIZE);
+1533:    const enemyRow = Math.floor(enemyBottom / TILE_SIZE);
+1536:    let onGround = false;
+1538:      const tileBelow = map[enemyRow][enemyCol];
+1557:    const aheadX = enemy.x + (enemy.dir > 0 ? TILE_SIZE : -2);
+1558:    const footY = enemy.y + TILE_SIZE;
+1559:    const tileAhead = getTile(aheadX, enemy.y);
+1560:    const tileBelowAhead = getTile(aheadX, footY);
+1575:function drawEnemies() {
+1581:  for (const enemy of enemyObjs) {
+1584:    const frame = Math.floor((enemy.animTimer || 0) / 10) % 2;
+1585:    const img = frame === 0 ? enemyMoveImg1 : enemyMoveImg2;
+1590:const deathGifEl = document.getElementById("deathGif");
+1593:function getTile(x, y) {
+1594:  const col = Math.floor(x / TILE_SIZE);
+1595:  const row = Math.floor(y / TILE_SIZE);
+1601:function checkCollision(x, y, width, height) {
+1602:  const left = Math.floor(x / TILE_SIZE);
+1603:  const right = Math.floor((x + width) / TILE_SIZE);
+1604:  const top = Math.floor(y / TILE_SIZE);
+1605:  const bottom = Math.floor((y + height) / TILE_SIZE);
+1607:  for (let row = top; row <= bottom; row++) {
+1608:    for (let col = left; col <= right; col++) {
+1610:        const tile = map[row][col];
+1637:function diePlayer(reason) {
+1654:  for (let key in keys) keys[key] = false;
+1659:const spawn = findSpawn();
+1670:const playerCol = Math.floor(player.x / TILE_SIZE);
+1671:const playerRow = Math.floor(player.y / TILE_SIZE);
+1673:for (let r = playerRow - 1; r <= playerRow + 2; r++) {
+1674:  let rowInfo = "";
+1675:  for (let c = playerCol - 1; c <= playerCol + 2; c++) {
+1677:      const tile = map[r][c];
+1678:      const isDummy = tile === 19;
+1679:      const overlay = isDummy && window.dummyOverlays ? window.dummyOverlays[`${r},${c}`] : null;
+1694:let targetScale = SCALE;
+1697:function loadGameSettings() {
+1698:  const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+1699:  const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+1701:  const defaults = {
+1709:  const defaultKeys = {
+1733:  const selectedCharacter = settings.character || defaults.character;
+1773:function update() {
+1777:  const leftKey = window.gameKeys?.left || 'a';
+1778:  const rightKey = window.gameKeys?.right || 'd';
+1792:  const nextX = player.x + player.vx;
+1793:  const collisionX = checkCollision(nextX, player.y, player.width, player.height);
+1801:  const ladderFootX = player.x + player.width / 2;
+1802:  const ladderFootY = player.y + player.height + 1;
+1803:  const ladderTileBelow = getTile(ladderFootX, ladderFootY);
+1804:  const stopKey = window.gameKeys?.stop || 'Shift';
+1809:  const nextY = player.y + player.vy;
+1810:  const collisionY = checkCollision(player.x, nextY, player.width, player.height);
+1820:  const underTile = getTile(player.x + player.width / 2, player.y + player.height + 2);
+1821:  const nowTile = getTile(player.x + player.width / 2, player.y + player.height / 2);
+1829:    const centerOffsetX = 0.0; // 0.0:完全中心, 0.1:少し左寄り
+1832:    const mapPixelHeight = map.length * TILE_SIZE;
+1833:    const viewHeight = canvas.height / window.dynamicScale;
+1834:    const maxCameraY = mapPixelHeight - viewHeight;
+1848:  let onEnemy = false;
+1849:  let enemiesToRemove = []; // 削除する敵のインデックスを保存
+1857:  for (let i = 0; i < enemyObjs.length; i++) {
+1858:    const enemy = enemyObjs[i];
+1865:    const enemyCol = Math.round(enemy.x / TILE_SIZE);
+1866:    const enemyRow = Math.round(enemy.y / TILE_SIZE);
+1867:    const key = `${enemyRow},${enemyCol}`;
+1868:    const props = (window.enemyProps && window.enemyProps[key]) ? window.enemyProps[key] : window.defaultEnemyProps;
+1870:    const px1 = player.x, px2 = player.x + player.width;
+1871:    const py1 = player.y, py2 = player.y + player.height;
+1872:    const ex1 = enemy.x, ex2 = enemy.x + TILE_SIZE;
+1873:    const ey1 = enemy.y, ey2 = enemy.y + TILE_SIZE;
+1875:    const isTopDeath = px2 > ex1 && px1 < ex2 && Math.abs(py2 - ey1) < 4 && player.vy >= 0;
+1876:    const isBottomDeath = px2 > ex1 && px1 < ex2 && Math.abs(py1 - ey2) < 4 && player.vy < 0;
+1877:    const isSideDeath = py2 > ey1 + 6 && py1 < ey2 - 6 && ((Math.abs(px2 - ex1) < 3 && player.vx > 0) || (Math.abs(px1 - ex2) < 3 && player.vx < 0));
+1879:    const isTopHit = px2 > ex1 && px1 < ex2 && Math.abs(py2 - ey1) < 9 && player.vy >= 0;
+1880:    const isBottomHit = px2 > ex1 && px1 < ex2 && Math.abs(py1 - ey2) < 9 && player.vy < 0;
+1881:    const isSideHit = py2 > ey1 + 2 && py1 < ey2 - 2 && ((Math.abs(px2 - ex1) < 8 && player.vx > 0) || (Math.abs(px1 - ex2) < 8 && player.vx < 0));
+1927:  for (let i = enemiesToRemove.length - 1; i >= 0; i--) {
+1934:  const footX = player.x + player.width / 2;
+1935:  const footY = player.y + player.height + 1;
+1936:  const tileBelow = getTile(footX, footY);
+1942:  const colBelow = Math.floor(footX / TILE_SIZE);
+1943:  const rowBelow = Math.floor(footY / TILE_SIZE);
+1945:    const key = rowBelow + "," + colBelow;
+1951:  for (let row = 0; row < map.length; row++) {
+1952:    for (let col = 0; col < map[0].length; col++) {
+1954:        const key = row + "," + col;
+1956:      const elapsed = performance.now() - window.breakTimers[key];
+1974:  for (let i = window.fallingBreaks.length - 1; i >= 0; i--) {
+1975:    const fb = window.fallingBreaks[i];
+1978:    const nextRow = Math.floor((fb.y + TILE_SIZE) / TILE_SIZE);
+1981:    let hitEnemy = false;
+1982:    for (let j = enemyObjs.length - 1; j >= 0; j--) {
+1983:      const enemy = enemyObjs[j];
+2026:  for (let i = window.breakRespawns.length - 1; i >= 0; i--) {
+2027:    const br = window.breakRespawns[i];
+2039:  const playerBottom = player.y + player.height;
+2040:  const playerCenterX = player.x + player.width / 2;
+2043:  const tileBelowPlayer = getTile(playerCenterX, playerBottom + 1);
+2050:  const trampolineRow = Math.floor(playerBottom / TILE_SIZE);
+2051:  const trampolineCol = Math.floor(playerCenterX / TILE_SIZE);
+2053:    const tile = map[trampolineRow][trampolineCol];
+2055:          let angle = 270; // デフォルトは上方向
+2059:          const rad = angle * Math.PI / 180;
+2060:          const power = Math.abs(player.jumpPower) * 1.7;
+2067:  const centerX = player.x + player.width / 2;
+2068:  const centerY = player.y + player.height / 2;
+2069:  const tileAtCenter = getTile(centerX, centerY);
+2076:  const bodyX = player.x + player.width / 2;
+2077:  const bodyY = player.y + player.height / 2;
+2078:  const tileAtBody = getTile(bodyX, bodyY);
+2082:    const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+2083:    const downKey = window.gameKeys?.down || 's';
+2084:    const stopKey = window.gameKeys?.stop || 'Shift';
+2099:  const ladderUpKey = window.gameKeys?.ladderUp || 'w';
+2106:  const jumpKey = window.gameKeys?.jump || ' ';
+2125:    const col = Math.floor(bodyX / TILE_SIZE);
+2126:    const row = Math.floor(bodyY / TILE_SIZE);
+2131:    const dist = Math.sqrt((player.x - window.lastCheckpointPos.x) ** 2 + (player.y - window.lastCheckpointPos.y) ** 2);
+2140:  const fallThreshold = map.length * TILE_SIZE + 64;
+2149:    for (let key in keys) keys[key] = false;
+2159:    const col = Math.floor(bodyX / TILE_SIZE);
+2160:    const row = Math.floor(bodyY / TILE_SIZE);
+2166:    const col = Math.floor(bodyX / TILE_SIZE);
+2167:    const row = Math.floor(bodyY / TILE_SIZE);
+2175:    for (let r = 0; r < map.length; r++) {
+2176:      for (let c = 0; c < map[0].length; c++) {
+2179:          const tileAbove = map[r-1][c];
+2193:    const elapsed = performance.now() - deathStartTime;
+2222:function draw() {
+2228:  for (let row = 0; row < map.length; row++) {
+2229:    for (let col = 0; col < map[0].length; col++) {
+2230:      const tile = map[row][col];
+2231:      const x = col * TILE_SIZE;
+2232:      const y = row * TILE_SIZE;
+2235:        const left = col > 0 && map[row][col-1] >= 12 && map[row][col-1] <= 14;
+2249:    for (const fb of window.fallingBreaks) {
+2258:  for (let row = 0; row < map.length; row++) {
+2259:    for (let col = 0; col < map[0].length; col++) {
+2260:      const tile = map[row][col];
+2261:      const x = col * TILE_SIZE;
+2262:      const y = row * TILE_SIZE;
+2265:      let drawTile = tile;
+2284:        const colorIndex = drawTile - 20;
+2308:function gameLoop() {
+2338:function findSpawn() {
+2339:  for (let r = 0; r < map.length; r++) {
+2340:    for (let c = 0; c < map[0].length; c++) {
+2350:const oldThumbBtn = document.getElementById('saveThumbBtn');
+2353:const homeBtn = document.getElementById("backHomeBtn");
+2360:function saveMap() {
+2361:  const mapData = {

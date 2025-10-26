@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ラフトの冒険</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #1a2a4f;
+      font-family: "Yu Gothic", sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #113;
+      border: 2px solid #1a2a4f;
+      image-rendering: pixelated;
+    }
+    #backHomeBtn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      z-index: 1000;
+      background: #fff;
+      color: #1a2a4f;
+      border-radius: 12px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+    .fullscreen-mode .ui-button {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .fullscreen-mode canvas {
+      width: 100vw !important;
+      height: 100vh !important;
+      border: none;
+      margin: 0;
+    }
+  </style>
+  <script src="assets-base64.js"></script>
+</head>
+<body>
+  <canvas id="gameCanvas" width="1024" height="640"></canvas>
+
+  <button id="backHomeBtn" class="ui-button">ホームへ戻る</button>
+
+  <img id="deathGif" src="assets/death.gif" style="
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: none;
+  z-index: 9999;
+  pointer-events: none;
+  object-fit: cover;
+  image-rendering: pixelated;
+" />
+
+  <img id="player" style="display:none">
+  <img id="player-run1" style="display:none">
+  <img id="player-run2" style="display:none">
+  <img id="player-jump1" style="display:none">
+  <img id="player-jump2" style="display:none">
+
+  <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+
+  <!-- editor-common.jsのみでテストしたい場合は、下だけでOK -->
+  <script src="editor-common.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const homeBtn = document.getElementById('backHomeBtn');
+      
+      if (homeBtn) {
+        homeBtn.onclick = function() {
+          location.href = 'home.html';
+        };
+      }
+
+      // フルスクリーン機能
+
+      // フルスクリーン状態の監視
+      document.addEventListener('fullscreenchange', function() {
+        if (document.fullscreenElement) {
+          document.body.classList.add('fullscreen-mode');
+          console.log('フルスクリーンモード開始');
+        } else {
+          document.body.classList.remove('fullscreen-mode');
+          console.log('フルスクリーンモード終了');
+        }
+      });
+
+      // ESCキーでのフルスクリーン解除
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+      });
+
+      // 設定の読み込みと反映
+      function loadPlaySettings() {
+        const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+        
+        // フルスクリーン設定
+        if (settings.fullscreen) {
+          console.log('フルスクリーン設定が有効です');
+        }
+        
+        // 解像度設定（現在は自動調整のため、設定値は参考として保存）
+        if (settings.resolution && settings.resolution !== 'auto') {
+          console.log('解像度設定:', settings.resolution);
+        }
+        
+        console.log('プレイ設定読み込み完了');
+      }
+      loadPlaySettings();
+    });
+  </script>
+</body>
+</html>

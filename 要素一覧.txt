@@ -1,0 +1,130 @@
+
+要素一覧.txt
+
+---
+【前半】
+
+■ editor-common.js
+- ゲーム/エディターのコアロジック
+	- プレイヤー管理
+		- playerオブジェクト：座標、速度、状態（死亡/ジャンプ等）
+		- PlayerAnimatorクラス：キャラクターのアニメーション（idle/run/jump）
+		- プレイヤー画像（idle/run/jump）管理
+	- 敵管理
+		- enemyObjs配列：敵の座標・状態
+		- initEnemies()：マップから敵を生成
+		- updateEnemies()：敵の移動・当たり判定
+		- drawEnemies()：敵の描画（アニメーション含む）
+	- マップ管理
+		- map配列：タイル情報
+		- loadMapFromStorage()/saveMap()：localStorageでマップ保存・読込
+		- タイル画像（ground, dirt, stone, ladder等）管理
+	- キー設定・カメラ
+		- keys：入力状態
+		- cameraX, cameraY：カメラ座標
+		- loadGameSettings()：localStorageから設定読込
+		- キー割り当て（left/right/jump/ladder等）
+	- 死亡処理
+		- diePlayer(reason)：死亡時の処理
+		- 死亡アニメ（deathGif表示）
+	- その他
+		- checkCollision()：当たり判定
+		- getTile()：座標→タイル取得
+		- findSpawn()：スポーン位置検索
+
+■ editor.html
+- UI構造
+	- <canvas id="editorCanvas">：マップ編集用キャンバス
+	- スロットバー（セーブ/ロード/新規/削除）
+	- ブロック選択UI（画像付きボタン）
+- イベントハンドリング
+	- クリック/ドラッグでマップ編集
+	- スロット選択・保存・削除
+	- ブロック選択
+- JS連携
+	- editor-common.jsを利用
+
+■ home.css
+- レイアウト
+	- 画面中央配置、レスポンシブ
+- スロットリスト
+	- 枠・色・選択時の強調
+- キャラクター選択
+	- ボタン・画像・選択時のアニメーション
+- ボタン
+	- 新規/削除/開始ボタンのスタイル
+
+■ home.html
+- UI要素
+	- <div class="slot-list">：セーブスロット一覧
+	- <button class="new-slot">：新規スロット作成
+	- <button class="delete-slot">：スロット削除
+	- <div class="character-select">：キャラクター選択
+	- <button class="start-btn">：ゲーム開始
+- 構造
+	- スロット選択→キャラクター選択→ゲーム開始
+
+■ home.js
+- スロット管理
+	- localStorageでスロット保存/読込/削除
+	- スロット選択時のUI更新
+- キャラクターアニメーション
+	- 画像切替・アニメーション
+- 画面遷移
+	- スロット選択→キャラクター選択→index.htmlへ遷移
+
+---
+【後半】
+
+■ icon.icns
+- macOS用アプリのアイコンファイル（バイナリ）
+	- コード要素なし
+
+■ index.html
+- UI構造
+	- <canvas id="gameCanvas">：ゲーム描画領域
+	- <button id="backHomeBtn">：ホームへ戻る
+	- <img id="deathGif">：死亡アニメ
+	- <img id="player">等：プレイヤー画像（非表示）
+	- <div id="message">：メッセージ表示
+- JS機能
+	- フルスクリーン切替（fullscreenchangeイベント）
+	- ESCキーでフルスクリーン解除
+	- localStorageから設定読込（gameSettings）
+	- assets-base64.jsで画像展開
+	- editor-common.jsでゲームロジック
+
+■ main-game-symbols.txt
+- ゲーム内定数・シンボル一覧
+	- マップ関連：TILE_SIZE, mapCols, mapRows, map
+	- キャラクター関連：player, PlayerAnimator, characterImages
+	- 敵関連：enemyObjs, initEnemies, updateEnemies, drawEnemies
+	- 画像関連：groundImg, dirtImg, enemyImgなど
+	- キー設定：keys, loadGameSettings, defaultKeys
+	- アニメーション：animator, draw, gameLoop
+	- カメラ：cameraX, cameraY
+	- 死亡処理：diePlayer, deathGifEl
+
+■ make_assets_base64.py
+- Pythonスクリプト
+	- assets内画像をBase64化し、assets-base64.jsを自動生成
+	- get_mime_type(filename)：拡張子→MIMEタイプ判定
+	- main()：画像Base64化→JS出力（window.ASSETS_BASE64）
+
+■ settings.html
+- UI構造
+	- 画面設定：フルスクリーン、解像度選択
+	- カメラ設定：追従速度、ズーム
+	- 音量設定：効果音/BGM
+	- 難易度設定：easy/normal/hard
+	- グリッド表示・スナップ
+	- キャラクター選択（画像付きラジオボタン）
+	- キー設定（移動/ジャンプ/停止/エディター操作）
+	- 保存・リセット・戻るボタン
+- JS機能
+	- localStorageから設定読込・反映・保存・リセット
+	- キー設定の変更・保存・リセット
+	- キャラクター画像アニメーション描画・更新
+
+---
+（assets-base64.js、assetsフォルダは除外）

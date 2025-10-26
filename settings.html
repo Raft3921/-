@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>設定 - ラフトの冒険</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #0a1b2a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .settings-container {
+      background: white;
+      color: #0a1b2a;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #1a2a4f;
+    }
+    .setting-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    .setting-section h2 {
+      margin-top: 0;
+      color: #1a2a4f;
+      border-bottom: 2px solid #4466ff;
+      padding-bottom: 10px;
+    }
+    .setting-item {
+      margin-bottom: 20px;
+    }
+    .setting-item label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #1a2a4f;
+    }
+    .setting-item input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    .setting-item input[type="checkbox"] {
+      margin-right: 10px;
+    }
+    .setting-item select {
+      width: 100%;
+      padding: 8px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .value-display {
+      background: #e9ecef;
+      padding: 5px 10px;
+      border-radius: 5px;
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    .buttons {
+      text-align: center;
+      margin-top: 30px;
+    }
+    button {
+      background: #4466ff;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 0 10px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #3355ee;
+    }
+    button.secondary {
+      background: #6c757d;
+    }
+    button.secondary:hover {
+      background: #5a6268;
+    }
+    .key-button {
+      background: #f8f9fa;
+      border: 2px solid #ddd;
+      color: #1a2a4f;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      min-width: 60px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .key-button:hover {
+      background: #e9ecef;
+      border-color: #4466ff;
+    }
+    .key-button.setting {
+      background: #4466ff;
+      color: white;
+      border-color: #4466ff;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .character-option {
+      display: flex;
+      align-items: center;
+    }
+    .character-option input[type="radio"] {
+      display: none;
+    }
+    .character-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f8f9fa;
+      min-width: 100px;
+    }
+    .character-label:hover {
+      border-color: #4466ff;
+      background: #e9ecef;
+    }
+    .character-option input[type="radio"]:checked + .character-label {
+      border-color: #4466ff;
+      background: #4466ff;
+      color: white;
+      transform: scale(1.05);
+    }
+    .character-label img {
+      margin-bottom: 5px;
+      image-rendering: pixelated;
+    }
+    .character-label span {
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+  <script src="assets-base64.js"></script>
+</head>
+<body>
+  <div class="settings-container">
+    <h1>設定</h1>
+    
+    <!-- メッセージ表示エリア -->
+    <div id="message" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;padding:8px 16px;border-radius:8px;color:#1a2a4f;display:none;z-index:9999;font-weight:bold"></div>
+    
+    <!-- 画面設定 -->
+    <div class="setting-section">
+      <h2>画面設定</h2>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="fullscreen"> フルスクリーンでプレイ
+        </label>
+      </div>
+      <div class="setting-item">
+        <label>画面解像度</label>
+        <select id="resolution">
+          <option value="auto">自動（推奨）</option>
+          <option value="1024x640">1024x640</option>
+          <option value="1280x800">1280x800</option>
+          <option value="1920x1080">1920x1080</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>描画品質</label>
+        <select id="renderQuality">
+          <option value="1">最高（デフォルト）</option>
+          <option value="0.85">高</option>
+          <option value="0.7">中</option>
+          <option value="0.55">低</option>
+          <option value="0.4">最小</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- カメラ設定 -->
+    <div class="setting-section">
+      <h2>カメラ設定</h2>
+      <div class="setting-item">
+        <label>カメラ追従速度 <span class="value-display" id="cameraSpeedValue">0.1</span></label>
+        <input type="range" id="cameraSpeed" min="0.05" max="0.2" step="0.01" value="0.1">
+      </div>
+      <div class="setting-item">
+        <label>ズーム倍率 <span class="value-display" id="zoomValue">2.0</span></label>
+        <input type="range" id="zoom" min="1.0" max="3.0" step="0.1" value="2.0">
+      </div>
+    </div>
+
+    <!-- ゲーム設定 -->
+    <div class="setting-section">
+      <h2>ゲーム設定</h2>
+      <div class="setting-item">
+        <label>効果音音量 <span class="value-display" id="sfxVolumeValue">50%</span></label>
+        <input type="range" id="sfxVolume" min="0" max="100" value="50">
+      </div>
+      <div class="setting-item">
+        <label>BGM音量 <span class="value-display" id="bgmVolumeValue">30%</span></label>
+        <input type="range" id="bgmVolume" min="0" max="100" value="30">
+      </div>
+      <div class="setting-item">
+        <label>難易度</label>
+        <select id="difficulty">
+          <option value="easy">簡単</option>
+          <option value="normal" selected>普通</option>
+          <option value="hard">難しい</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- コントロール設定 -->
+    <div class="setting-section">
+      <h2>コントロール設定</h2>
+      <div class="setting-item">
+        <label>ゲーム操作キー</label>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div>
+            <label style="font-size: 12px; color: #666;">左移動</label>
+            <button class="key-button" id="leftKey" data-action="setKey" data-key="left">A</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">右移動</label>
+            <button class="key-button" id="rightKey" data-action="setKey" data-key="right">D</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">ジャンプ</label>
+            <button class="key-button" id="jumpKey" data-action="setKey" data-key="jump">Space</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">ハシゴ上昇</label>
+            <button class="key-button" id="ladderUpKey" data-action="setKey" data-key="ladderUp">W</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">ハシゴ下降</label>
+            <button class="key-button" id="downKey" data-action="setKey" data-key="down">S</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">停止</label>
+            <button class="key-button" id="stopKey" data-action="setKey" data-key="stop">Shift</button>
+          </div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <label>エディター操作キー</label>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ左</label>
+            <button class="key-button" id="editorLeftKey" data-action="setKey" data-key="editorLeft">A</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ右</label>
+            <button class="key-button" id="editorRightKey" data-action="setKey" data-key="editorRight">D</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ上</label>
+            <button class="key-button" id="editorUpKey" data-action="setKey" data-key="editorUp">W</button>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: #666;">カメラ下</label>
+            <button class="key-button" id="editorDownKey" data-action="setKey" data-key="editorDown">S</button>
+          </div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <button id="resetKeysBtn" class="secondary" style="font-size: 14px; padding: 8px 16px;">キー設定をリセット</button>
+      </div>
+    </div>
+
+    <!-- エディタ設定 -->
+    <div class="setting-section">
+      <h2>エディタ設定</h2>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="showGrid" checked> グリッド表示
+        </label>
+      </div>
+      <div class="setting-item">
+        <label>
+          <input type="checkbox" id="snapToGrid" checked> グリッドにスナップ
+        </label>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="saveBtn">💾 保存</button>
+      <button id="resetBtn" class="secondary">🗑️ リセット</button>
+      <button id="backBtn" class="secondary">🏠 戻る</button>
+    </div>
+  </div>
+
+  <script>
+    // 設定の読み込み
+    function loadSettings() {
+      const settings = JSON.parse(localStorage.getItem('gameSettings') || '{}');
+      
+      // デフォルト値
+      const defaults = {
+        fullscreen: false,
+        resolution: 'auto',
+        renderQuality: '1',
+        cameraSpeed: 0.1,
+        zoom: 2.0,
+        sfxVolume: 50,
+        bgmVolume: 30,
+        difficulty: 'normal',
+        showGrid: true,
+        snapToGrid: true,
+        character: 'raft'
+      };
+
+      // 設定を適用
+      Object.keys(defaults).forEach(key => {
+        const element = document.getElementById(key);
+        if (element) {
+          if (element.type === 'checkbox') {
+            element.checked = settings[key] !== undefined ? settings[key] : defaults[key];
+          } else if (element.type === 'range') {
+            element.value = settings[key] !== undefined ? settings[key] : defaults[key];
+            updateRangeValue(key);
+          } else {
+            element.value = settings[key] !== undefined ? settings[key] : defaults[key];
+          }
+        }
+      });
+
+      // キー設定の読み込み
+      loadKeySettings();
+    }
+
+    // キー設定の読み込み
+    function loadKeySettings() {
+      const keySettings = JSON.parse(localStorage.getItem('keySettings') || '{}');
+      
+      // デフォルトキー設定
+      const defaultKeys = {
+        left: 'a',
+        right: 'd',
+        jump: ' ',
+        ladderUp: 'w',
+        down: 's',
+        stop: 'Shift',
+        editorLeft: 'a',
+        editorRight: 'd',
+        editorUp: 'w',
+        editorDown: 's'
+      };
+
+      // キー設定を適用
+      Object.keys(defaultKeys).forEach(key => {
+        const button = document.getElementById(key + 'Key');
+        if (button) {
+          const legacyKey = (key === 'ladderUp') ? (keySettings.ladderUp || keySettings.up) : undefined;
+          const savedKey = legacyKey || keySettings[key] || defaultKeys[key];
+          button.textContent = getKeyDisplayName(savedKey);
+          button.dataset.keyValue = savedKey;
+        }
+      });
+    }
+
+    // キーの表示名を取得
+    function getKeyDisplayName(key) {
+      const keyMap = {
+        ' ': 'Space',
+        'ArrowLeft': '←',
+        'ArrowRight': '→',
+        'ArrowUp': '↑',
+        'ArrowDown': '↓',
+        'Shift': 'Shift',
+        'Control': 'Ctrl',
+        'Alt': 'Alt',
+        'Tab': 'Tab',
+        'Enter': 'Enter',
+        'Escape': 'Esc'
+      };
+      return keyMap[key] || key.toUpperCase();
+    }
+
+    // キー設定モード
+    let isSettingKey = false;
+    let currentSettingButton = null;
+
+    // キー設定開始
+    function startKeySetting(button) {
+      if (isSettingKey) return;
+      
+      isSettingKey = true;
+      currentSettingButton = button;
+      
+      // 他のボタンの設定モードを解除
+      document.querySelectorAll('.key-button').forEach(btn => {
+        btn.classList.remove('setting');
+      });
+      
+      // 現在のボタンを設定モードに
+      button.classList.add('setting');
+      button.textContent = 'キーを押してください...';
+      
+      showMessage('キーを押してください');
+    }
+
+    // キー設定完了
+    function finishKeySetting(key) {
+      if (!isSettingKey || !currentSettingButton) return;
+      
+      isSettingKey = false;
+      currentSettingButton.classList.remove('setting');
+      currentSettingButton.textContent = getKeyDisplayName(key);
+      currentSettingButton.dataset.keyValue = key;
+      currentSettingButton = null;
+      
+      showMessage('キーを設定しました');
+    }
+
+    // キー設定の保存
+    function saveKeySettings() {
+      const keySettings = {};
+      const keyButtons = document.querySelectorAll('.key-button');
+      
+      keyButtons.forEach(button => {
+        const keyType = button.dataset.key;
+        const keyValue = button.dataset.keyValue;
+        if (keyType && keyValue) {
+          keySettings[keyType] = keyValue;
+        }
+      });
+      
+      localStorage.setItem('keySettings', JSON.stringify(keySettings));
+    }
+
+    // キー設定のリセット
+    function resetKeySettings() {
+      if (confirm('キー設定をデフォルトに戻しますか？')) {
+        localStorage.removeItem('keySettings');
+        loadKeySettings();
+        showMessage('キー設定をリセットしました！');
+      }
+    }
+
+    // 範囲スライダーの値表示更新
+    function updateRangeValue(id) {
+      const element = document.getElementById(id);
+      const valueElement = document.getElementById(id + 'Value');
+      if (element && valueElement) {
+        if (id === 'cameraSpeed') {
+          valueElement.textContent = parseFloat(element.value).toFixed(2);
+        } else if (id === 'zoom') {
+          valueElement.textContent = parseFloat(element.value).toFixed(1);
+        } else if (id === 'sfxVolume' || id === 'bgmVolume') {
+          valueElement.textContent = element.value + '%';
+        }
+      }
+    }
+
+    // 設定の保存
+    function saveSettings() {
+      const settings = {};
+      const elements = ['fullscreen', 'resolution', 'renderQuality', 'cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume', 'difficulty', 'showGrid', 'snapToGrid', 'character'];
+      
+      elements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          if (element.type === 'checkbox') {
+            settings[id] = element.checked;
+          } else if (element.type === 'radio') {
+            // ラジオボタンの場合は選択された値を取得
+            const selectedRadio = document.querySelector(`input[name="${id}"]:checked`);
+            if (selectedRadio) {
+              settings[id] = selectedRadio.value;
+            }
+          } else {
+            settings[id] = element.value;
+          }
+        }
+      });
+
+      localStorage.setItem('gameSettings', JSON.stringify(settings));
+      
+      // キー設定も保存
+      saveKeySettings();
+      
+      showMessage('設定を保存しました！');
+    }
+
+    // 設定のリセット
+    function resetSettings() {
+      if (confirm('設定をデフォルトに戻しますか？')) {
+        localStorage.removeItem('gameSettings');
+        loadSettings();
+        showMessage('設定をリセットしました！');
+      }
+    }
+
+    // イベントリスナー
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+
+      // 範囲スライダーの値表示更新
+      ['cameraSpeed', 'zoom', 'sfxVolume', 'bgmVolume'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.addEventListener('input', () => updateRangeValue(id));
+        }
+      });
+
+      // ボタンイベント
+      document.getElementById('saveBtn').onclick = saveSettings;
+      document.getElementById('resetBtn').onclick = resetSettings;
+      document.getElementById('backBtn').onclick = () => location.href = 'home.html';
+
+      // キー設定イベント
+      document.getElementById('resetKeysBtn').onclick = resetKeySettings;
+      
+      // キーボタンのクリックイベント
+      document.querySelectorAll('.key-button').forEach(button => {
+        button.addEventListener('click', () => {
+          startKeySetting(button);
+        });
+      });
+
+      // キーボードイベント
+      document.addEventListener('keydown', (e) => {
+        if (isSettingKey) {
+          e.preventDefault();
+          finishKeySetting(e.key);
+        }
+      });
+    });
+
+    // メッセージ表示関数
+    function showMessage(message) {
+      const messageElement = document.getElementById('message');
+      if (messageElement) {
+        messageElement.textContent = message;
+        messageElement.style.display = 'block';
+        setTimeout(() => {
+          messageElement.style.display = 'none';
+        }, 3000);
+      }
+    }
+
+    // キャラクターアニメーション機能
+    const characterAnimations = {
+      raft: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      },
+      mai: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      },
+      tanutsuna: {
+        idle: new Image(),
+        run1: new Image(),
+        run2: new Image()
+      }
+    };
+
+    // 画像読み込み
+    characterAnimations.raft.idle.src = window.ASSETS_BASE64["player.png"];
+    characterAnimations.raft.run1.src = window.ASSETS_BASE64["player-run1.png"];
+    characterAnimations.raft.run2.src = window.ASSETS_BASE64["player-run2.png"];
+
+    characterAnimations.mai.idle.src = window.ASSETS_BASE64["mai.png"];
+    characterAnimations.mai.run1.src = window.ASSETS_BASE64["mai-run1.png"];
+    characterAnimations.mai.run2.src = window.ASSETS_BASE64["mai-run2.png"];
+
+    characterAnimations.tanutsuna.idle.src = window.ASSETS_BASE64["tanutsuna.png"];
+    characterAnimations.tanutsuna.run1.src = window.ASSETS_BASE64["tanutsuna-run1.png"];
+    characterAnimations.tanutsuna.run2.src = window.ASSETS_BASE64["tanutsuna-run2.png"];
+
+    // アニメーション状態
+    let animationFrame = 0;
+    let animationTimer = 0;
+
+    // キャラクターアニメーション描画
+    function drawCharacterAnimation(canvasId, characterName) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const images = characterAnimations[characterName];
+      
+      if (!images) return;
+      
+      // キャンバスをクリア
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 走りアニメーション（2フレーム）
+      const frame = Math.floor(animationFrame / 10) % 2;
+      const img = frame === 0 ? images.run1 : images.run2;
+      
+      if (img.complete && img.naturalWidth > 0) {
+        // 64x64に拡大描画
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // アニメーション更新
+    function updateAnimations() {
+      animationFrame++;
+      
+      // 各キャラクターのアニメーションを描画
+      drawCharacterAnimation('raftCanvas', 'raft');
+      drawCharacterAnimation('maiCanvas', 'mai');
+      drawCharacterAnimation('tanutsunaCanvas', 'tanutsuna');
+      
+      requestAnimationFrame(updateAnimations);
+    }
+
+    // アニメーション開始
+    updateAnimations();
+  </script>
+</body>
+</html> 

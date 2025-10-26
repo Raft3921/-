@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ラフトの冒険 - ホーム</title>
+  <link rel="stylesheet" href="home.css" />
+  <script src="assets-base64.js"></script>
+</head>
+<body>
+  
+  <div id="container">
+    <h1>ラフトの冒険</h1>
+
+    <div id="characterSelect" style="margin-bottom: 20px;">
+      <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+        <div class="char-option">
+          <input type="radio" id="homeCharRaft" name="homeCharacter" value="raft" checked>
+          <label for="homeCharRaft" class="char-label">
+            <canvas id="homeRaftCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>ラフト</span>
+          </label>
+        </div>
+        <div class="char-option">
+          <input type="radio" id="homeCharMai" name="homeCharacter" value="mai">
+          <label for="homeCharMai" class="char-label">
+            <canvas id="homeMaiCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>まい</span>
+          </label>
+        </div>
+        <div class="char-option">
+          <input type="radio" id="homeCharTanutsuna" name="homeCharacter" value="tanutsuna">
+          <label for="homeCharTanutsuna" class="char-label">
+            <canvas id="homeTanutsunaCanvas" width="64" height="64" style="image-rendering: pixelated; margin-bottom: 5px;"></canvas>
+            <span>たぬつな</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div id="primaryActions">
+      <button id="createWorld">➕ 新しいワールド</button>
+      <button id="importWorldBtn">📂 ワールド読込</button>
+      <button id="settingsBtn">⚙️ 設定</button>
+    </div>
+    <input type="file" id="importWorldInput" accept=".json" multiple style="display:none">
+    <div id="slotsContainer">
+      <!-- ワールドスロットの並び替えボタンはスクリプトで追加されます -->
+      <div id="slots"></div>
+    </div>
+    <div id="navigation">
+      <button id="prevBtn">⬅️ 前へ</button>
+      <span id="pageInfo">1 / 1</span>
+      <button id="nextBtn">次へ ➡️</button>
+    </div>
+  </div>
+  <script src="home.js"></script>
+</body>
+</html>
